@@ -1,0 +1,147 @@
+"""Data normalization and column mapping."""
+
+from typing import Dict, List, Optional, Tuple
+
+import pandas as pd
+
+from ..utils.date_utils import date_like_ratio, robust_parse_dates
+
+
+# Column candidates for auto-detection
+DATE_CANDIDATES = ["date", "transaction date", "post date", "posted date", "posting date", "trans date"]
+DESC_CANDIDATES = ["description", "details", "memo", "payee", "name", "narrative", "transaction description"]
+DEBIT_CANDIDATES = ["debit", "withdrawal", "withdrawals", "outflow", "charge"]
+CREDIT_CANDIDATES = ["credit", "deposit", "deposits", "inflow", "payment"]
+AMOUNT_CANDIDATES = ["amount", "transaction amount", "amt"]
+
+
+def clean_string(s: Optional[str]) -> str:
+    """Clean and normalize string for comparison."""
+    if s is None:
+        return ""
+    return (
+        str(s)
+        .replace("\ufeff", "")
+        .replace("\u00a0", " ")
+        .replace("\u200b", "")
+        .strip()
+        .lower()
+    )
+
+
+def choose_col_ci(cols: List[str], candidates: List[str]) -> Optional[str]:
+    """Choose column using case-insensitive matching."""
+    cmap = {clean_string(c): c for c in cols}
+    for cand in candidates:
+        k = clean_string(cand)
+        if k in cmap:
+            return cmap[k]
+    return None
+
+
+def resolve_col(df: pd.DataFrame, declared: Optional[str], fallback_cands: List[str]) -> Tuple[str, pd.Series]:
+    """Resolve column name using declared name or fallback candidates."""
+    cols = list(df.columns)
+    if declared:
+        norm = clean_string(declared)
+        for c in cols:
+            if clean_string(c) == norm:
+                return c, df[c]
+    cand = choose_col_ci(cols, fallback_cands)
+    if cand:
+        return cand, df[cand]
+    return cols[0], df[cols[0]]
+
+
+def apply_column_mapping(df: pd.DataFrame, mapping: Optional[dict]) -> pd.DataFrame:
+    """Apply column name mapping if provided."""
+    if not mapping:
+        return df
+    
+    fixed = {}
+    inv = {clean_string(k): v for k, v in mapping.items()}
+    for c in df.columns:
+        k = clean_string(c)
+        if k in inv:
+            fixed[c] = inv[k]
+    
+    return df.rename(columns=fixed) if fixed else df
+
+
+def calculate_amount(df: pd.DataFrame, norm_cfg: dict, amount_col: Optional[str]) -> pd.Series:
+    """Calculate amount from various column configurations."""
+    if amount_col:
+        return pd.to_numeric(df[amount_col], errors="coerce").fillna(0.0)
+    
+    debit = norm_cfg.get("debit_col") or choose_col_ci(list(df.columns), DEBIT_CANDIDATES)
+    credit = norm_cfg.get("credit_col") or choose_col_ci(list(df.columns), CREDIT_CANDIDATES)
+    
+    if not debit and not credit:
+        fallback_col = choose_col_ci(list(df.columns), AMOUNT_CANDIDATES)
+        return pd.to_numeric(df.get(fallback_col, 0), errors="coerce").fillna(0.0)
+    
+    d = pd.to_numeric(df.get(debit, 0), errors="coerce").fillna(0.0)
+    c = pd.to_numeric(df.get(credit, 0), errors="coerce").fillna(0.0)
+    
+    if norm_cfg.get("debit_credit_are_signed", False):
+        return d + c
+    else:
+        return c - d
+
+
+def normalize(df_in: pd.DataFrame, norm_cfg: dict) -> pd.DataFrame:
+    """Normalize DataFrame columns and data types."""
+    df = apply_column_mapping(df_in.copy(), norm_cfg.get("columns"))
+
+    declared_date = norm_cfg.get("date_col")
+    declared_desc = norm_cfg.get("description_col")
+    declared_amt = norm_cfg.get("amount_col")
+
+    date_name, date_raw = resolve_col(df, declared_date, DATE_CANDIDATES)
+    desc_name, desc_raw = resolve_col(df, declared_desc, DESC_CANDIDATES)
+
+    # If a specific amount_col is declared, use it; else infer
+    amount_col = None
+    if declared_amt and declared_amt in df.columns:
+        amount_col = declared_amt
+    else:
+        guess = choose_col_ci(list(df.columns), AMOUNT_CANDIDATES)
+        if guess:
+            amount_col = guess
+
+    # Validate date column; if not date-like, scan all columns and pick best
+    ratio = date_like_ratio(date_raw)
+    if ratio < 0.30:
+        best_name, best_ratio = date_name, ratio
+        for c in df.columns:
+            col_ratio = date_like_ratio(df[c])
+            if col_ratio > best_ratio:
+                best_name, best_ratio = c, col_ratio
+        if best_ratio > ratio:
+            date_name, date_raw, ratio = best_name, df[best_name], best_ratio
+
+    print(f"  date_col picked: {date_name}; sample raw -> {date_raw.astype(str).head(5).tolist()} (date-like={ratio:.2f})")
+
+    date_series = robust_parse_dates(date_raw, norm_cfg.get("date_format"))
+    amount = calculate_amount(df, norm_cfg, amount_col)
+
+    # Optional sign refinement
+    sign_from = norm_cfg.get("sign_from")
+    if sign_from and isinstance(sign_from, dict):
+        col = sign_from.get("column")
+        if col and col in df.columns:
+            deb_kw = [k.lower() for k in sign_from.get("debit_keywords", [])]
+            cre_kw = [k.lower() for k in sign_from.get("credit_keywords", [])]
+            types = df[col].astype(str).str.lower().fillna("")
+            mask_deb = types.apply(lambda s: any(k in s for k in deb_kw))
+            mask_cre = types.apply(lambda s: any(k in s for k in cre_kw))
+            amount = amount.mask(mask_deb & (amount >= 0), -amount.abs())
+            amount = amount.mask(mask_cre & (amount <= 0), amount.abs())
+
+    out = pd.DataFrame({
+        "date": pd.to_datetime(date_series, errors="coerce"),
+        "amount": pd.to_numeric(amount, errors="coerce").fillna(0.0).round(2),
+        "description": desc_raw.astype(str).map(lambda x: " ".join(x.split())),
+    })
+    out["source_file"] = df.get("__source_file", "")
+    return out

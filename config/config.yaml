@@ -1,0 +1,93 @@
+target_workbook: ../FinanceWorkbook 2025.xlsx
+log_dir: ../FinPulseImportLogs
+details_sheet: Details
+sources:
+  BECU - Member Shared Savings:
+    bank_label: BECU
+    account_label: Member Shared Savings
+    account_sheet: BECU Member Shared Savings
+    files:
+    - ../Inputs/BECU - Member Shared Savings/*.csv
+    auto_raw_from_sheet: true
+    debit_col: Debit
+    credit_col: Credit
+    debit_credit_are_signed: true
+    date_col: "Date"
+    date_format: "%m/%d/%y"     # or "%m/%d/%Y" if the CSV uses four-digit year
+  Chase - Checkings:
+    bank_label: Chase
+    account_label: Checkings
+    account_sheet: Chase Checkings
+    files:
+      - ../Inputs/Chase - Checkings/*.csv      # keep
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  Chase - Freedom Credit Card:
+    bank_label: Chase
+    account_label: Freedom Credit Card
+    account_sheet: Chase Freedom Credit Card
+    files:
+    - ../Inputs/Chase - Freedom Credit Card/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Post Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  Chase - Prime Visa:
+    bank_label: Chase
+    account_label: Prime Visa
+    account_sheet: Chase Prime Visa
+    files:
+    - ../Inputs/Chase - Prime Visa/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Post Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  First Tech - Certificate 0958:
+    bank_label: First Tech
+    account_label: Certificate 0958
+    account_sheet: First Tech Certificate
+    files:
+    - ../Inputs/First Tech - Certificate 0958/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  First Tech - Checkings:
+    bank_label: First Tech
+    account_label: Checkings
+    account_sheet: First Tech Checkings
+    files:
+    - ../Inputs/First Tech - Checkings/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  First Tech - Choice Credit Card:
+    bank_label: First Tech
+    account_label: Choice Credit Card
+    account_sheet: First Tech Choice Credit Card
+    files:
+    - ../Inputs/First Tech - Choice Credit Card/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  First Tech - Savings:
+    bank_label: First Tech
+    account_label: Savings
+    account_sheet: First Tech Rewards Savings
+    files:
+    - ../Inputs/First Tech - Savings/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
