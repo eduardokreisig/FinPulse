@@ -315,11 +315,11 @@ def main() -> None:
 
     except KeyboardInterrupt:
         print("\nOperation cancelled by user")
-        sys.exit(1)
+        return
     except Exception as e:
         print("ERROR:", e)
         print(traceback.format_exc())
-        sys.exit(1)
+        return
     finally:
         # Restore stdout first
         if tee:
