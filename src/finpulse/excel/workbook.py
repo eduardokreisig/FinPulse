@@ -20,14 +20,8 @@ def header_map(ws: Any) -> Dict[str, int]:
     return mapping
 
 
-def header_to_index(ws: Any) -> Dict[str, int]:
-    """Create mapping of header names to column indices."""
-    m = {}
-    for c in range(1, ws.max_column + 1):
-        v = ws.cell(row=1, column=c).value
-        if isinstance(v, str) and v.strip():
-            m[v.strip()] = c
-    return m
+# Alias for backward compatibility
+header_to_index = header_map
 
 
 def find_insert_index(ws: Any, key: Tuple[str, str, Any], idx_bank: int, idx_account: int, idx_date: int) -> int:

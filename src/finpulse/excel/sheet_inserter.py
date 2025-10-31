@@ -15,6 +15,39 @@ from .workbook import (
 )
 
 
+def copy_formulas_to_row(ws, src_row: int, dst_row: int, max_col: int = None) -> None:
+    """Copy and translate formulas from source row to destination row."""
+    max_col = max_col or ws.max_column
+    for c in range(1, max_col + 1):
+        src = ws.cell(row=src_row, column=c)
+        dst = ws.cell(row=dst_row, column=c)
+        if isinstance(src.value, str) and src.value.startswith("="):
+            try:
+                # Only translate if it's a simple formula, skip complex ones
+                if len(src.value) < 100 and not any(x in src.value.upper() for x in ['INDIRECT', 'OFFSET', 'INDEX']):
+                    dst.value = Translator(src.value, origin=src.coordinate).translate_formula(dst.coordinate)
+                else:
+                    # For complex formulas, just copy as-is to avoid corruption
+                    dst.value = src.value
+            except (AttributeError, ValueError, KeyError, TypeError) as e:
+                # If translation fails, copy the original formula
+                dst.value = src.value
+                logging.debug(f"Skipped formula translation for {src.coordinate}: {e}")
+
+
+def calculate_amount_from_withdrawals_deposits(w_amt: float, d_amt: float) -> float:
+    """Calculate net amount from withdrawal and deposit amounts."""
+    # With negative withdrawals format: just return whichever is non-zero
+    w_amt = float(w_amt or 0.0)
+    d_amt = float(d_amt or 0.0)
+    return w_amt if w_amt != 0.0 else d_amt
+
+
+def build_dedup_key(bank: str, account: str, date, description: str, amount: float) -> tuple:
+    """Build standardized deduplication key."""
+    return (str(bank), str(account), date, norm_key(description), round(float(amount), 2))
+
+
 def norm_key(s: Optional[str]) -> str:
     """Normalize key for comparison."""
     if s is None:
@@ -57,14 +90,19 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         if hasattr(d, "date"):
             d = d.date()
         desc = norm_key(ws.cell(row=row_idx, column=col_desc).value)
-        existing_keys.add((str(b), str(a), d, desc))
+        # Get amount for deduplication key
+        w_amt = ws.cell(row=row_idx, column=col_w).value or 0.0
+        d_amt = ws.cell(row=row_idx, column=col_d).value or 0.0
+        amt = calculate_amount_from_withdrawals_deposits(w_amt, d_amt)
+        existing_keys.add(build_dedup_key(b, a, d, desc, amt))
 
     rows_sorted = sorted(rows, key=lambda r: (bank_label, account_label, r["date"]))
     added = 0
     
     for row_data in rows_sorted:
         dkey = row_data["date"].date() if hasattr(row_data["date"], "date") else row_data["date"]
-        key = (bank_label, account_label, dkey, norm_key(row_data["description"]))
+        amt = float(row_data["amount"] or 0.0)
+        key = build_dedup_key(bank_label, account_label, dkey, row_data["description"], amt)
         if key in existing_keys:
             continue
 
@@ -76,6 +114,9 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         ws.insert_rows(ins_at, 1)
         src_row = ins_at - 1 if ins_at > 2 else ins_at + 1
         copy_row_styles(ws, src_row, ins_at)
+        
+        # Copy formulas from source row
+        copy_formulas_to_row(ws, src_row, ins_at)
 
         def safe_set(ci, value):
             if ci and not should_skip_write(ws, ins_at, ci):
@@ -88,7 +129,7 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
 
         amt = float(row_data["amount"] or 0.0)
         if amt < 0:
-            safe_set(col_w, abs(amt))
+            safe_set(col_w, amt)  # Keep negative value
             safe_set(col_d, 0.0)
             safe_set(col_type, "Withdrawal")
         else:
@@ -107,6 +148,9 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
 
         added += 1
         existing_keys.add(key)
+        
+        # Skip formula updates in existing rows to prevent corruption
+        # Excel will automatically adjust most formulas when rows are inserted
 
     if not dry:
         save_workbook_safe(wb, validated_xlsx)
@@ -188,14 +232,7 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
         copy_row_styles(ws, src_row, ins_at)
 
         # copy formulas only for A..J
-        for c in range(1, min(ws.max_column, 10) + 1):
-            src = ws.cell(row=src_row, column=c)
-            dst = ws.cell(row=ins_at, column=c)
-            if isinstance(src.value, str) and src.value.startswith("="):
-                try:
-                    dst.value = Translator(src.value, origin=src.coordinate).translate_formula(dst.coordinate)
-                except (AttributeError, ValueError, KeyError) as e:
-                    logging.warning(f"Failed to translate formula: {e}")
+        copy_formulas_to_row(ws, src_row, ins_at, min(ws.max_column, 10))
 
         if isinstance(col_bank, int) and not should_skip_write(ws, ins_at, col_bank):
             ws.cell(row=ins_at, column=col_bank).value = bank_label

@@ -1,55 +1,107 @@
+# FinPulse: Financial Data Ingestion Tool
 
-# Bank → Excel Ingest: Quick Start
-
-This toolkit helps you pull exported transactions from multiple banks and append them into your existing Excel workbook with one command, while keeping per‑bank raw tabs and a consolidated tab up to date.
+This toolkit helps you pull exported transactions from multiple banks and append them into your existing Excel workbook with one command, while keeping per‑bank account sheets and a consolidated Details tab up to date.
 
 ## What you get
-- **bank_ingest.py** – reads your bank exports (CSV/OFX/QFX), normalizes columns, de‑dupes, appends into per‑bank *Raw* tabs, and rebuilds a **Consolidated** tab.
-- **config.yaml** – where you define your target workbook, per‑bank file globs, and column mappings.
-- **FinanceWorkbook_template.xlsx** – optional starter workbook with example tabs; you can point the config to your own workbook instead.
+- **src/finpulse/main.py** – reads your bank exports (CSV), normalizes columns, de‑dupes, appends into per‑bank account sheets, and updates a **Details** tab.
+- **config/config.yaml** – where you define your target workbook, per‑source file globs, and column mappings.
+- Modular Python package with separate modules for data processing, Excel operations, and utilities.
 
-## Prereqs
+## Prerequisites
 ```bash
-python3 -m pip install pandas openpyxl ofxparse pyyaml
+python3 -m pip install pandas openpyxl pyyaml
 ```
-(`ofxparse` is optional—only if you plan to ingest OFX/QFX.)
 
 ## Folder layout (example)
 ```
-project/
-  bank_ingest.py
-  config.yaml
-  inputs/
-    checking_us/2025-10-checking.csv
-    creditcard_abc/2025-10-cc.csv
-  FinanceWorkbook_template.xlsx   # or your own workbook
+FinPulse/
+  src/
+    finpulse/
+      main.py
+      config/
+        loader.py
+      data/
+        csv_reader.py
+        normalizer.py
+      excel/
+        sheet_inserter.py
+      utils/
+  config/
+    config.yaml
+  scripts/
+    run-finance-ingest.sh
+../Inputs/                    # Bank export files
+  BECU - Member Shared Savings/
+    2025-01-statement.csv
+  Chase - Checkings/
+    2025-01-activity.csv
+../FinanceWorkbook 2025.xlsx  # Your target workbook
 ```
 
 ## Configure
-Edit **config.yaml**:
-- `target_workbook`: path to your actual Excel file.
-- Under `banks`, add one entry per institution:
+Edit **config/config.yaml**:
+- `target_workbook`: path to your actual Excel file
+- `details_sheet`: name of consolidated sheet (default: "Details")
+- `log_dir`: optional logging directory
+- Under `sources`, add one entry per account:
+  - `bank_label` & `account_label`: for identification
+  - `account_sheet`: target Excel sheet name
   - `files`: glob(s) pointing to your exported files
-  - `columns`: map your file’s headers to normalized names: `date`, `amount` *or* `debit`/`credit`, `description`, `category`, `check_number`
-  - If your bank exports debits as positive numbers, set `flip_sign: true`.
-  - If you have separate `debit` / `credit` columns, set `debit_col` and `credit_col` accordingly.
+  - `auto_raw_from_sheet: true`: auto-detect raw columns from Excel
+  - `date_col`, `description_col`: explicit column mappings
+  - `debit_col` & `credit_col`: for separate debit/credit columns
+  - `date_format`: specify date parsing format (e.g., "%m/%d/%Y")
 
 ## Run
+
+### Interactive Mode (Recommended)
 ```bash
-python3 bank_ingest.py --config config.yaml --start 2025-01-01 --end 2025-10-11
+# Interactive setup with prompts
+python3 -m src.finpulse.main
 ```
-- The script appends only **new** rows by computing a stable `transaction_id` hash (`bank|date|amount|description|check_number`).
-- It writes to one raw tab per bank, e.g., `Raw - Checking_US`, and rebuilds `Consolidated` by stacking all raw tabs.
-- Your *Formatted* tabs are untouched. Refresh pivots/charts in Excel if needed.
+This will prompt you for:
+- Config file location (default: config/config.yaml)
+- Finance workspace folder
+- Finance workbook filename
+- Inputs folder location
+- Logs folder location
+- Start/end dates for import
+- Whether to proceed with real import after dry run
+
+### Command Line Mode
+```bash
+# From the FinPulse directory
+python3 -m src.finpulse.main --config config/config.yaml --start 2025-01-01 --end 2025-10-11
+
+# Or use the provided script
+./scripts/run-finance-ingest.sh
+
+# Dry run to test without changes
+python3 -m src.finpulse.main --config config/config.yaml --dry-run
+```
+- The script appends only **new** rows by computing deduplication keys from date, description, and amount.
+- It writes to account-specific sheets (e.g., "Chase Checkings") and updates the "Details" sheet.
+- Raw bank data is preserved in columns K+ for traceability.
+- Your existing formulas and formatting are preserved.
 
 ## Tips
-- Export as **CSV** when possible for simplicity. OFX/QFX are supported with `ofxparse`.
-- If your bank truncates descriptions in export, consider adding `source_file` to formulas/tools for traceability.
-- To test safely, point `target_workbook` at a copy of your workbook.
-- If you later change mapping or sign, re-run—the de‑dupe key protects against duplicates.
+- Export as **CSV** from your banks for best compatibility.
+- Use interactive mode for first-time setup - it guides you through configuration.
+- The tool automatically detects date, amount, and description columns.
+- Raw bank data is preserved in columns K+ for audit trails.
+- Logging is available - check the log directory for detailed processing info.
+- If you change mappings, re-run—deduplication prevents duplicates.
+- Missing workbooks or input files are handled gracefully with warnings.
+- After a dry run, you can choose to proceed with the real import immediately.
 
 ## Extending
-- Add custom cleaning: e.g., normalize payee names, merchant category mapping, memo parsing. The best place is `normalize_dataframe()` in `bank_ingest.py`.
-- If you want automatic monthly ingestion, pair this with a scheduled task (macOS `launchd`, Windows Task Scheduler, or cron) that downloads your bank exports to the `inputs/` folder **(respecting your bank’s terms of service)**.
-```
+- Add custom cleaning in `src/finpulse/data/normalizer.py` - e.g., payee normalization, category mapping.
+- Modify Excel operations in `src/finpulse/excel/sheet_inserter.py` for custom formatting.
+- Add new data sources by extending `src/finpulse/data/csv_reader.py`.
+- For automation, use the provided shell script with cron/launchd **(respecting your bank's terms of service)**.
 
+## Architecture
+- **Modular design**: Separate concerns (config, data, Excel, utils)
+- **Robust error handling**: Graceful failures with detailed logging
+- **Data preservation**: Raw bank data maintained alongside normalized data
+- **Flexible configuration**: YAML-based setup for easy bank addition

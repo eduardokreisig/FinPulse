@@ -11,7 +11,7 @@ sources:
     auto_raw_from_sheet: true
     debit_col: Debit
     credit_col: Credit
-    debit_credit_are_signed: true
+    debit_credit_are_signed: true #this is the default anyway, so not including it for the next accounts (unless the account requires false)
     date_col: "Date"
     date_format: "%m/%d/%y"     # or "%m/%d/%Y" if the CSV uses four-digit year
   Chase - Checkings:

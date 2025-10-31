@@ -83,7 +83,7 @@ def calculate_amount(df: pd.DataFrame, norm_cfg: dict, amount_col: Optional[str]
     d = pd.to_numeric(df.get(debit, 0), errors="coerce").fillna(0.0)
     c = pd.to_numeric(df.get(credit, 0), errors="coerce").fillna(0.0)
     
-    if norm_cfg.get("debit_credit_are_signed", False):
+    if norm_cfg.get("debit_credit_are_signed", True):
         return d + c
     else:
         return c - d
