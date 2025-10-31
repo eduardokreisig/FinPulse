@@ -1,6 +1,7 @@
 """Excel sheet insertion operations."""
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -53,6 +54,25 @@ def norm_key(s: Optional[str]) -> str:
     if s is None:
         return ""
     return " ".join(str(s).split()).lower()
+
+
+def fix_shifted_formulas(ws, col_acc_period: int) -> None:
+    """Fix formulas that were incorrectly shifted by Excel's automatic adjustment."""
+    if not col_acc_period:
+        return
+    
+    for row_idx in range(2, ws.max_row + 1):
+        cell = ws.cell(row=row_idx, column=col_acc_period)
+        if isinstance(cell.value, str) and cell.value.startswith("="):
+            # Look for DATE formulas with cell references
+            pattern = r'=DATE\(YEAR\(C(\d+)\),\s*MONTH\(C(\d+)\),\s*1\)'
+            match = re.match(pattern, cell.value)
+            if match:
+                ref_row1, ref_row2 = int(match.group(1)), int(match.group(2))
+                # If both references point to the same row but not the current row, fix it
+                if ref_row1 == ref_row2 and ref_row1 != row_idx:
+                    corrected_formula = f"=DATE(YEAR(C{row_idx}), MONTH(C{row_idx}), 1)"
+                    cell.value = corrected_formula
 
 
 def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str, 
@@ -152,7 +172,11 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         # Skip formula updates in existing rows to prevent corruption
         # Excel will automatically adjust most formulas when rows are inserted
 
-    if not dry:
+    # Fix any formulas that were incorrectly shifted by Excel
+    if not dry and added > 0:
+        fix_shifted_formulas(ws, col_acc_period)
+        save_workbook_safe(wb, validated_xlsx)
+    elif not dry:
         save_workbook_safe(wb, validated_xlsx)
     return added
 
@@ -214,6 +238,28 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
         for row_index in range(2, ws.max_row + 1):
             existing.add(existing_key(row_index))
 
+    # Find actual last row with data
+    last_data_row = 1
+    for r_idx in range(ws.max_row, 1, -1):
+        bank_val = ws.cell(row=r_idx, column=col_bank).value if col_bank else None
+        account_val = ws.cell(row=r_idx, column=col_account).value if col_account else None
+        if bank_val or account_val:
+            last_data_row = r_idx
+            break
+    
+    # Find a row with formulas to copy from
+    formula_source_row = last_data_row
+    for r_idx in range(last_data_row, 1, -1):
+        has_formula = False
+        for c in range(1, min(11, ws.max_column + 1)):
+            c_val = ws.cell(row=r_idx, column=c).value
+            if isinstance(c_val, str) and c_val.startswith("="):
+                has_formula = True
+                break
+        if has_formula:
+            formula_source_row = r_idx
+            break
+
     added = 0
     for row_data in rows:
         key = None
@@ -242,13 +288,15 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             added += 1
             continue
 
-        ins_at = ws.max_row + 1
+        # Insert after last data row
+        ins_at = last_data_row + 1
         ws.insert_rows(ins_at, 1)
-        src_row = ins_at - 1 if ins_at > 2 else ins_at + 1
-        copy_row_styles(ws, src_row, ins_at)
-
-        # copy formulas only for A..J
-        copy_formulas_to_row(ws, src_row, ins_at, min(ws.max_column, 10))
+        
+        # Copy styles and formulas from a row that has formulas
+        copy_row_styles(ws, formula_source_row, ins_at)
+        copy_formulas_to_row(ws, formula_source_row, ins_at, min(ws.max_column, 10))
+        
+        last_data_row = ins_at  # Update for next insertion
 
         if isinstance(col_bank, int) and not should_skip_write(ws, ins_at, col_bank):
             ws.cell(row=ins_at, column=col_bank).value = bank_label
