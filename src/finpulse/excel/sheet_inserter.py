@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 from openpyxl.formula.translate import Translator
 
-from ..data.normalizer import clean_string
+
 from ..utils.date_utils import DATE_SEARCH_PATTERN, to_iso_dateish
 from .workbook import (
     copy_row_styles, find_insert_index, header_map, header_to_index,

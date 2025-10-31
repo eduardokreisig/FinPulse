@@ -1,6 +1,6 @@
 """Data normalization and column mapping."""
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pandas as pd
 
@@ -57,14 +57,14 @@ def apply_column_mapping(df: pd.DataFrame, mapping: Optional[dict]) -> pd.DataFr
     """Apply column name mapping if provided."""
     if not mapping:
         return df
-    
+
     fixed = {}
     inv = {clean_string(k): v for k, v in mapping.items()}
     for c in df.columns:
         k = clean_string(c)
         if k in inv:
             fixed[c] = inv[k]
-    
+
     return df.rename(columns=fixed) if fixed else df
 
 
@@ -72,17 +72,17 @@ def calculate_amount(df: pd.DataFrame, norm_cfg: dict, amount_col: Optional[str]
     """Calculate amount from various column configurations."""
     if amount_col:
         return pd.to_numeric(df[amount_col], errors="coerce").fillna(0.0)
-    
+
     debit = norm_cfg.get("debit_col") or choose_col_ci(list(df.columns), DEBIT_CANDIDATES)
     credit = norm_cfg.get("credit_col") or choose_col_ci(list(df.columns), CREDIT_CANDIDATES)
-    
+
     if not debit and not credit:
         fallback_col = choose_col_ci(list(df.columns), AMOUNT_CANDIDATES)
         return pd.to_numeric(df.get(fallback_col, 0), errors="coerce").fillna(0.0)
-    
+
     d = pd.to_numeric(df.get(debit, 0), errors="coerce").fillna(0.0)
     c = pd.to_numeric(df.get(credit, 0), errors="coerce").fillna(0.0)
-    
+
     if norm_cfg.get("debit_credit_are_signed", True):
         return d + c
     else:
@@ -120,7 +120,10 @@ def normalize(df_in: pd.DataFrame, norm_cfg: dict) -> pd.DataFrame:
         if best_ratio > ratio:
             date_name, date_raw, ratio = best_name, df[best_name], best_ratio
 
-    print(f"  date_col picked: {date_name}; sample raw -> {date_raw.astype(str).head(5).tolist()} (date-like={ratio:.2f})")
+    print(
+        f"  date_col picked: {date_name}; sample raw -> "
+        f"{date_raw.astype(str).head(5).tolist()} (date-like={ratio:.2f})"
+    )
 
     date_series = robust_parse_dates(date_raw, norm_cfg.get("date_format"))
     amount = calculate_amount(df, norm_cfg, amount_col)

@@ -10,7 +10,7 @@ from datetime import datetime
 import pandas as pd
 from openpyxl import load_workbook
 
-from .config.loader import get_log_directory, get_target_workbook_path, load_config
+from .config.loader import get_log_directory, load_config
 from .data.csv_reader import load_inputs_for_source
 from .data.normalizer import normalize
 from .excel.sheet_inserter import insert_into_account_sheet, insert_into_details
@@ -44,7 +44,7 @@ def setup_log_file(log_dir: Path, is_dry_run: bool):
     """Setup log file if log directory is specified."""
     if not log_dir:
         return None, None, None
-    
+
     try:
         log_dir.mkdir(parents=True, exist_ok=True)
         logfile = log_dir / utc_log_name(is_dry_run)
@@ -62,7 +62,7 @@ def setup_log_file(log_dir: Path, is_dry_run: bool):
 def get_interactive_config():
     """Get configuration interactively from user."""
     print("\n=== FinPulse Interactive Setup ===")
-    
+
     # Get config file
     config_file = get_user_input("Config file path", "config/config.yaml")
     config_path = Path(config_file)
@@ -70,30 +70,30 @@ def get_interactive_config():
         print(f"Warning: Config file {config_path} does not exist")
         if not get_yes_no("Continue anyway?", False):
             sys.exit(1)
-    
+
     # Get workspace folder
     workspace = get_user_input("Finance workspace folder", "..")
     workspace_path = Path(workspace).resolve()
-    
+
     # Get workbook name
     workbook_name = get_user_input("Finance workbook filename", "FinanceWorkbook 2025.xlsx")
-    
+
     # Get inputs folder
     default_inputs = str(workspace_path / "Inputs")
     inputs_folder = get_user_input("Inputs folder", default_inputs)
-    
+
     # Get logs folder
     default_logs = str(workspace_path / "FinPulseImportLogs")
     logs_folder = get_user_input("Logs folder", default_logs)
-    
+
     # Get date range with current year defaults
     current_year = datetime.now().year
     default_start = f"{current_year}-01-01"
     default_end = f"{current_year}-12-31"
-    
+
     start_date = get_user_input("Start date (YYYY-MM-DD)", default_start)
     end_date = get_user_input("End date (YYYY-MM-DD)", default_end)
-    
+
     return {
         'config': config_file,
         'workspace': workspace,
@@ -110,7 +110,7 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
     print(f"\n=== Source: {src_name} ===")
     df_in = load_inputs_for_source(scfg)
     print(f"  df_in rows: {len(df_in)}")
-    
+
     if df_in.empty:
         return 0, 0
 
@@ -119,7 +119,7 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
 
     account_sheet = scfg.get("account_sheet")
     raw_map = scfg.get("raw_map")
-    
+
     if scfg.get("auto_raw_from_sheet", False):
         try:
             if not xlsx.exists():
@@ -142,12 +142,12 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
         except (FileNotFoundError, PermissionError, KeyError) as e:
             logging.warning(f"Failed to load workbook for auto_raw_from_sheet: {e}")
             raw_map = {}
-    
+
     print(f"  raw_map keys (K+ headers): {list(raw_map.keys()) if raw_map else 'None'}")
 
     norm_df = normalize(df_in, scfg)
     print(f"  normalized rows: {len(norm_df)}")
-    
+
     try:
         dates = pd.to_datetime(norm_df["date"], errors="coerce")
         print(f"  date dtype: {dates.dtype}, NaT count: {dates.isna().sum()} of {len(dates)}")
@@ -165,7 +165,7 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
     if args.end:
         end = pd.to_datetime(args.end)
         norm_df = norm_df[norm_df["date"] <= end]
-    
+
     print(f"  rows after date filter: {len(norm_df)}")
     if norm_df.empty:
         return 0, 0
@@ -186,18 +186,22 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
     bank_label = scfg.get("bank_label", src_name)
     account_label = scfg.get("account_label", src_name)
 
-    acct_added = insert_into_account_sheet(xlsx, account_sheet, bank_label, account_label, rows, raw_map=raw_map, dry=args.dry_run)
+    acct_added = insert_into_account_sheet(
+        xlsx, account_sheet, bank_label, account_label, rows, raw_map=raw_map, dry=args.dry_run
+    )
     det_added = insert_into_details(xlsx, details_sheet, bank_label, account_label, rows, dry=args.dry_run)
     print(f"  -> per-account added: {acct_added}, details added: {det_added}")
-    
+
     return acct_added, det_added
 
 
 def main() -> None:
     """Main entry point."""
     setup_logging()
-    
-    ap = argparse.ArgumentParser(description="FinPulse v5.3.17 (robust CSV defaults; no YAML change needed)")
+
+    ap = argparse.ArgumentParser(
+        description="FinPulse v5.3.17 (robust CSV defaults; no YAML change needed)"
+    )
     ap.add_argument("--config", default=None)
     ap.add_argument("--start", help="YYYY-MM-DD", default=None)
     ap.add_argument("--end", help="YYYY-MM-DD", default=None)
@@ -207,7 +211,7 @@ def main() -> None:
     ap.add_argument("--workbook", default=None)
     ap.add_argument("--inputs", default=None)
     args = ap.parse_args()
-    
+
     # Interactive mode if no config provided
     interactive_config = None
     if not args.config:
@@ -225,13 +229,13 @@ def main() -> None:
     except Exception as e:
         print(f"Error loading config: {e}")
         sys.exit(1)
-    
+
     # Override config with interactive inputs if provided
     if interactive_config:
         workspace_path = Path(interactive_config['workspace']).resolve()
         cfg['target_workbook'] = str(workspace_path / interactive_config['workbook'])
         cfg['log_dir'] = interactive_config['logs']
-        
+
         # Update source file paths to use new inputs folder
         inputs_path = Path(interactive_config['inputs'])
         for src_name, src_cfg in cfg.get('sources', {}).items():
@@ -249,16 +253,16 @@ def main() -> None:
                     else:
                         updated_files.append(file_pattern)
                 src_cfg['files'] = updated_files
-    
+
     log_dir = get_log_directory(cfg, args.log_dir)
-    
+
     orig_stdout = sys.stdout
     log_fp = None
     tee = None
-    
+
     try:
         log_fp, orig_stdout, tee = setup_log_file(log_dir, args.dry_run)
-        
+
         xlsx = Path(cfg['target_workbook']).expanduser().resolve()
         details_sheet = cfg.get("details_sheet", "Details")
 
@@ -290,7 +294,7 @@ def main() -> None:
         print(f"per-account added={total_accounts}, details added={total_details}")
         if xlsx.exists():
             print(f"Modified (after): {get_timestamp(xlsx)}")
-        
+
         if args.dry_run:
             print("(dry-run) No changes written.")
             if total_accounts > 0 or total_details > 0:
@@ -308,7 +312,7 @@ def main() -> None:
                     print("Done.")
         else:
             print("Done.")
-            
+
     except KeyboardInterrupt:
         print("\nOperation cancelled by user")
         sys.exit(1)
@@ -321,12 +325,12 @@ def main() -> None:
         if tee:
             tee.close()
         sys.stdout = orig_stdout
-        
+
         # Then close the log file
         if log_fp and not log_fp.closed:
             try:
                 log_fp.close()
-            except (OSError, IOError) as e:
+            except (OSError, IOError):
                 pass  # Ignore errors during cleanup
 
 
