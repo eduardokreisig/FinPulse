@@ -281,12 +281,14 @@ def main() -> None:
         total_accounts = 0
         sources_processed = 0
         sources_with_data = 0
+        source_results = []
 
         for src_name, scfg in cfg["sources"].items():
             sources_processed += 1
             acct_added, det_added = process_source(src_name, scfg, xlsx, details_sheet, args)
             total_accounts += acct_added
             total_details += det_added
+            source_results.append((src_name, acct_added, det_added))
             if acct_added > 0 or det_added > 0:
                 sources_with_data += 1
 
@@ -294,6 +296,15 @@ def main() -> None:
         print(f"per-account added={total_accounts}, details added={total_details}")
         if xlsx.exists():
             print(f"Modified (after): {get_timestamp(xlsx)}")
+        
+        # Check for deduplication discrepancies
+        if total_accounts != total_details:
+            print(f"\nWARNING: Deduplication mismatch - per-account: {total_accounts}, details: {total_details}")
+            discrepancies = [(name, acct, det) for name, acct, det in source_results if acct != det]
+            if discrepancies:
+                print("Accounts with discrepancies:")
+                for name, acct_added, det_added in discrepancies:
+                    print(f"  {name}: per-account={acct_added}, details={det_added}")
 
         if args.dry_run:
             print("(dry-run) No changes written.")
@@ -304,11 +315,22 @@ def main() -> None:
                     print("\n=== REAL IMPORT ===")
                     total_details = 0
                     total_accounts = 0
+                    final_results = []
                     for src_name, scfg in cfg["sources"].items():
                         acct_added, det_added = process_source(src_name, scfg, xlsx, details_sheet, args)
                         total_accounts += acct_added
                         total_details += det_added
+                        final_results.append((src_name, acct_added, det_added))
                     print(f"\nFinal: per-account added={total_accounts}, details added={total_details}")
+                    
+                    # Check for deduplication discrepancies in final run
+                    if total_accounts != total_details:
+                        print(f"\nWARNING: Deduplication mismatch - per-account: {total_accounts}, details: {total_details}")
+                        final_discrepancies = [(name, acct, det) for name, acct, det in final_results if acct != det]
+                        if final_discrepancies:
+                            print("Accounts with discrepancies:")
+                            for name, acct_added, det_added in final_discrepancies:
+                                print(f"  {name}: per-account={acct_added}, details={det_added}")
                     print("Done.")
         else:
             print("Done.")

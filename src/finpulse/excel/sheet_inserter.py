@@ -184,8 +184,11 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
     # Build existing dedupe keys using best available K+ trio
     prefer = [
         ["Date", "Description", "Amount"],
+        ["Date", "Description", "Debit", "Credit"],
         ["Posting Date", "Description", "Amount"],
+        ["Posting Date", "Description", "Debit", "Credit"],
         ["Post Date", "Description", "Amount"],
+        ["Post Date", "Description", "Debit", "Credit"],
     ]
     chosen = None
     for group in prefer:
@@ -199,6 +202,9 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             cell_val = ws.cell(row=row_idx, column=raw_cols_indices[n]).value
             if DATE_SEARCH_PATTERN.search(n):
                 key_parts.append(to_iso_dateish(cell_val))
+            elif n in ["Debit", "Credit"]:
+                # For existing Debit/Credit, just use the raw value
+                key_parts.append(str(cell_val or 0))
             else:
                 key_parts.append(norm_key(cell_val))
         return tuple(key_parts)
@@ -216,6 +222,16 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             for n in chosen:
                 if DATE_SEARCH_PATTERN.search(n):
                     row_key_parts.append(pd.to_datetime(row_data["date"]).strftime("%Y-%m-%d"))
+                elif "description" in n.lower():
+                    row_key_parts.append(norm_key(row_data["description"]))
+                elif n in ["Debit", "Credit"]:
+                    # For Debit/Credit, use the normalized amount
+                    if n == "Debit" and row_data["amount"] < 0:
+                        row_key_parts.append(str(row_data["amount"]))
+                    elif n == "Credit" and row_data["amount"] >= 0:
+                        row_key_parts.append(str(row_data["amount"]))
+                    else:
+                        row_key_parts.append("0")
                 else:
                     row_key_parts.append(norm_key(row_data.get("__raw__", {}).get(raw_map[n], "")))
             key = tuple(row_key_parts)
