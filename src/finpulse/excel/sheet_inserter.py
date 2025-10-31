@@ -203,8 +203,8 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             if DATE_SEARCH_PATTERN.search(n):
                 key_parts.append(to_iso_dateish(cell_val))
             elif n in ["Debit", "Credit"]:
-                # For existing Debit/Credit, just use the raw value
-                key_parts.append(str(cell_val or 0))
+                # For existing Debit/Credit, use the actual value or 0
+                key_parts.append(str(float(cell_val or 0)))
             else:
                 key_parts.append(norm_key(cell_val))
         return tuple(key_parts)
@@ -227,11 +227,11 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
                 elif n in ["Debit", "Credit"]:
                     # For Debit/Credit, use the normalized amount
                     if n == "Debit" and row_data["amount"] < 0:
-                        row_key_parts.append(str(row_data["amount"]))
+                        row_key_parts.append(str(float(row_data["amount"])))
                     elif n == "Credit" and row_data["amount"] >= 0:
-                        row_key_parts.append(str(row_data["amount"]))
+                        row_key_parts.append(str(float(row_data["amount"])))
                     else:
-                        row_key_parts.append("0")
+                        row_key_parts.append("0.0")
                 else:
                     row_key_parts.append(norm_key(row_data.get("__raw__", {}).get(raw_map[n], "")))
             key = tuple(row_key_parts)
