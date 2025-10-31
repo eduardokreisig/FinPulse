@@ -107,6 +107,11 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         b = (ws.cell(row=row_idx, column=col_bank).value or "")
         a = (ws.cell(row=row_idx, column=col_account).value or "")
         d = ws.cell(row=row_idx, column=col_date).value
+        
+        # Skip empty rows
+        if not any([b, a, d]):
+            continue
+            
         if hasattr(d, "date"):
             d = d.date()
         desc = norm_key(ws.cell(row=row_idx, column=col_desc).value)
