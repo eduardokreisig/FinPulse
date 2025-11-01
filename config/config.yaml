@@ -33,7 +33,7 @@ sources:
     - ../Inputs/Chase - Freedom Credit Card/*.csv
     auto_raw_from_sheet: true
     # Explicit mapping for normalization:
-    date_col: Post Date
+    date_col: Transaction Date
     date_format: "%m/%d/%Y"
     description_col: Description
   Chase - Prime Visa:
@@ -44,7 +44,7 @@ sources:
     - ../Inputs/Chase - Prime Visa/*.csv
     auto_raw_from_sheet: true
     # Explicit mapping for normalization:
-    date_col: Post Date
+    date_col: Transaction Date
     date_format: "%m/%d/%Y"
     description_col: Description
   First Tech - Certificate 0958:
