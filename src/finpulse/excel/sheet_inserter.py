@@ -172,7 +172,6 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
             ws.cell(row=ins_at, column=col_type_manual).value = None
 
         added += 1
-        existing_keys.add(key)
         
         # Skip formula updates in existing rows to prevent corruption
         # Excel will automatically adjust most formulas when rows are inserted
@@ -321,8 +320,6 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             if not should_skip_write(ws, ins_at, ci):
                 ws.cell(row=ins_at, column=ci).value = cell_value
 
-        if key:
-            existing.add(key)
         added += 1
 
     if not dry:
