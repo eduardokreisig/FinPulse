@@ -187,7 +187,8 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
     account_label = scfg.get("account_label", src_name)
 
     acct_added = insert_into_account_sheet(
-        xlsx, account_sheet, bank_label, account_label, rows, raw_map=raw_map, dry=args.dry_run
+        xlsx, account_sheet, bank_label, account_label, rows, raw_map=raw_map, 
+        source_config=scfg, dry=args.dry_run
     )
     det_added = insert_into_details(xlsx, details_sheet, bank_label, account_label, rows, dry=args.dry_run)
     print(f"  -> per-account added: {acct_added}, details added: {det_added}")

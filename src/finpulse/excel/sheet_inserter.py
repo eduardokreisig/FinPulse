@@ -186,7 +186,8 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
 
 
 def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str, account_label: str,
-                             rows: List[Dict[str, Any]], raw_map: Optional[Dict[str, str]], dry: bool = False) -> int:
+                             rows: List[Dict[str, Any]], raw_map: Optional[Dict[str, str]], 
+                             source_config: Optional[Dict[str, Any]] = None, dry: bool = False) -> int:
     """Insert rows into account-specific sheet."""
     if not rows:
         return 0
@@ -209,20 +210,38 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
         if isinstance(name, str) and name.strip():
             raw_cols_indices[name.strip()] = c
 
-    # Build existing dedupe keys using best available K+ trio
-    prefer = [
-        ["Date", "Description", "Amount"],
-        ["Date", "Description", "Debit", "Credit"],
-        ["Posting Date", "Description", "Amount"],
-        ["Posting Date", "Description", "Debit", "Credit"],
-        ["Post Date", "Description", "Amount"],
-        ["Post Date", "Description", "Debit", "Credit"],
-    ]
+    # Build existing dedupe keys using YAML config or fallback to hardcoded priority
     chosen = None
-    for group in prefer:
-        if all(n in raw_cols_indices for n in group):
-            chosen = group
-            break
+    
+    # Try YAML-configured columns first
+    if source_config:
+        date_col = source_config.get("date_col")
+        desc_col = source_config.get("description_col")
+        
+        if date_col and desc_col and date_col in raw_cols_indices and desc_col in raw_cols_indices:
+            # Check for amount vs debit/credit
+            if "Amount" in raw_cols_indices:
+                chosen = [date_col, desc_col, "Amount"]
+            elif source_config.get("debit_col") and source_config.get("credit_col"):
+                debit_col = source_config.get("debit_col")
+                credit_col = source_config.get("credit_col")
+                if debit_col in raw_cols_indices and credit_col in raw_cols_indices:
+                    chosen = [date_col, desc_col, debit_col, credit_col]
+    
+    # Fallback to hardcoded priority if YAML config didn't work
+    if not chosen:
+        prefer = [
+            ["Date", "Description", "Amount"],
+            ["Date", "Description", "Debit", "Credit"],
+            ["Posting Date", "Description", "Amount"],
+            ["Posting Date", "Description", "Debit", "Credit"],
+            ["Post Date", "Description", "Amount"],
+            ["Post Date", "Description", "Debit", "Credit"],
+        ]
+        for group in prefer:
+            if all(n in raw_cols_indices for n in group):
+                chosen = group
+                break
 
     def existing_key(row_idx: int):
         key_parts = []
