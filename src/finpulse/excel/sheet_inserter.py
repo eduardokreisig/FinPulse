@@ -242,6 +242,8 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             if all(n in raw_cols_indices for n in group):
                 chosen = group
                 break
+    
+    logging.info(f"Account sheet dedup columns for {bank_label} {account_label}: {chosen}")
 
     def existing_key(row_idx: int):
         key_parts = []
@@ -249,8 +251,9 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             cell_val = ws.cell(row=row_idx, column=raw_cols_indices[n]).value
             if DATE_SEARCH_PATTERN.search(n):
                 key_parts.append(to_iso_dateish(cell_val))
+            elif n == "Amount":
+                key_parts.append(str(float(cell_val or 0)))
             elif n in ["Debit", "Credit"]:
-                # For existing Debit/Credit, use the actual value or 0
                 key_parts.append(str(float(cell_val or 0)))
             else:
                 key_parts.append(norm_key(cell_val))
@@ -260,6 +263,9 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
     if chosen:
         for row_index in range(2, ws.max_row + 1):
             existing.add(existing_key(row_index))
+        logging.info(f"Found {len(existing)} existing records for dedup in {bank_label} {account_label}")
+    else:
+        logging.warning(f"No dedup columns found for {bank_label} {account_label}")
 
     # Find actual last row with data
     last_data_row = 1
@@ -286,13 +292,13 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
     added = 0
     for row_data in rows:
         key = None
-        if chosen and raw_map and all(col in raw_map for col in chosen):
+        if chosen:
             row_key_parts = []
             for n in chosen:
                 if DATE_SEARCH_PATTERN.search(n):
                     row_key_parts.append(pd.to_datetime(row_data["date"]).strftime("%Y-%m-%d"))
-                elif "description" in n.lower():
-                    row_key_parts.append(norm_key(row_data["description"]))
+                elif n == "Amount":
+                    row_key_parts.append(str(float(row_data["amount"])))
                 elif n in ["Debit", "Credit"]:
                     # For Debit/Credit, use the normalized amount
                     if n == "Debit" and row_data["amount"] < 0:
@@ -301,10 +307,15 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
                         row_key_parts.append(str(float(row_data["amount"])))
                     else:
                         row_key_parts.append("0.0")
+                elif n == "Description":
+                    row_key_parts.append(norm_key(row_data["description"]))
                 else:
-                    row_key_parts.append(norm_key(row_data.get("__raw__", {}).get(raw_map[n], "")))
+                    # For other columns, get from raw data
+                    raw_val = row_data.get("__raw__", {}).get(n, "")
+                    row_key_parts.append(norm_key(raw_val))
             key = tuple(row_key_parts)
         if key and key in existing:
+            logging.debug(f"Skipping duplicate: {key}")
             continue
 
         if dry:
