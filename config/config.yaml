@@ -23,7 +23,7 @@ sources:
     auto_raw_from_sheet: true
     # Explicit mapping for normalization:
     date_col: Posting Date
-    date_format: "%m/%d/%Y"
+    date_format: "%m/%d/%y"
     description_col: Description
   Chase - Freedom Credit Card:
     bank_label: Chase
@@ -47,17 +47,6 @@ sources:
     date_col: Transaction Date
     date_format: "%m/%d/%Y"
     description_col: Description
-  First Tech - Certificate 0958:
-    bank_label: First Tech
-    account_label: Certificate 0958
-    account_sheet: First Tech Certificate
-    files:
-    - ../Inputs/First Tech - Certificate 0958/*.csv
-    auto_raw_from_sheet: true
-    # Explicit mapping for normalization:
-    date_col: Posting Date
-    date_format: "%m/%d/%Y"
-    description_col: Description
   First Tech - Checkings:
     bank_label: First Tech
     account_label: Checkings
@@ -67,7 +56,7 @@ sources:
     auto_raw_from_sheet: true
     # Explicit mapping for normalization:
     date_col: Posting Date
-    date_format: "%m/%d/%Y"
+    date_format: "%m/%d/%y"
     description_col: Description
   First Tech - Choice Credit Card:
     bank_label: First Tech
@@ -78,7 +67,7 @@ sources:
     auto_raw_from_sheet: true
     # Explicit mapping for normalization:
     date_col: Posting Date
-    date_format: "%m/%d/%Y"
+    date_format: "%m/%d/%y"
     description_col: Description
   First Tech - Savings:
     bank_label: First Tech
@@ -86,6 +75,28 @@ sources:
     account_sheet: First Tech Rewards Savings
     files:
     - ../Inputs/First Tech - Savings/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  First Tech - Certificate 0958:
+    bank_label: First Tech
+    account_label: Certificate 0958
+    account_sheet: First Tech Certificate 0958
+    files:
+      - ../Inputs/First Tech - Certificate 0958/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%Y"
+    description_col: Description
+  First Tech - Certificate 4926:
+    bank_label: First Tech
+    account_label: Certificate 4926
+    account_sheet: First Tech Certificate 4926
+    files:
+      - ../Inputs/First Tech - Certificate 4926/*.csv
     auto_raw_from_sheet: true
     # Explicit mapping for normalization:
     date_col: Posting Date
