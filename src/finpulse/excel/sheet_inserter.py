@@ -156,14 +156,17 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         if amt < 0:
             safe_set(col_w, amt)  # Keep negative value
             safe_set(col_d, 0.0)
-            safe_set(col_type, "Withdrawal")
         else:
             safe_set(col_w, 0.0)
             safe_set(col_d, amt)
-            safe_set(col_type, "Deposit")
+
+
 
         if col_acc_period and hasattr(dkey, "replace") and not should_skip_write(ws, ins_at, col_acc_period):
             ws.cell(row=ins_at, column=col_acc_period).value = dkey.replace(day=1)
+        if col_type:
+            formula = f'=IF(AND(F{ins_at}<>0,G{ins_at}<>0),"Error",IF(F{ins_at}<0,"Withdrawal",IF(G{ins_at}>0,"Deposit","")))'
+            ws.cell(row=ins_at, column=col_type).value = formula
         if col_rev and not should_skip_write(ws, ins_at, col_rev):
             ws.cell(row=ins_at, column=col_rev).value = "No"
         if col_notes and not should_skip_write(ws, ins_at, col_notes):
