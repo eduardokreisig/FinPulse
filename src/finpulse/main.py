@@ -112,7 +112,31 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
     print(f"  df_in rows: {len(df_in)}")
 
     if df_in.empty:
-        return 0, 0
+        # Still count existing records even if no new data to ingest
+        account_sheet = scfg.get("account_sheet")
+        if account_sheet and xlsx.exists():
+            try:
+                wb = load_workbook(xlsx, read_only=True)
+                if account_sheet in wb.sheetnames:
+                    ws = wb[account_sheet]
+                    # Count non-empty rows (skip header)
+                    existing_count = 0
+                    for row_idx in range(2, ws.max_row + 1):
+                        # Check if row has any data
+                        has_data = False
+                        for col_idx in range(1, min(ws.max_column + 1, 15)):  # Check first 15 columns
+                            if ws.cell(row=row_idx, column=col_idx).value:
+                                has_data = True
+                                break
+                        if has_data:
+                            existing_count += 1
+                    wb.close()
+                    print(f"  -> no new data, but found {existing_count} existing records")
+                    return 0, 0, 0, 0, existing_count
+                wb.close()
+            except Exception as e:
+                logging.warning(f"Failed to count existing records for {src_name}: {e}")
+        return 0, 0, 0, 0, 0
 
     # show headers early for debugging
     print(f"  CSV headers (after parse): {list(df_in.columns)}")
@@ -150,14 +174,15 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
 
     try:
         dates = pd.to_datetime(norm_df["date"], errors="coerce")
-        print(f"  date dtype: {dates.dtype}, NaT count: {dates.isna().sum()} of {len(dates)}")
+        nat_count = dates.isna().sum()
+        print(f"  date dtype: {dates.dtype}, NaT count: {nat_count} of {len(dates)}")
         if dates.notna().any():
             print(f"  date min/max: {dates.min()} .. {dates.max()}")
         norm_df["date"] = dates
     except (ValueError, TypeError) as e:
         logging.warning(f"Failed to process dates for source {src_name}: {e}")
         print(f"  Warning: Date processing failed, skipping source")
-        return 0, 0
+        return 0, 0, 0, 0, 0
 
     if args.start:
         start = pd.to_datetime(args.start)
@@ -168,7 +193,7 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
 
     print(f"  rows after date filter: {len(norm_df)}")
     if norm_df.empty:
-        return 0, 0
+        return 0, 0, 0, 0, 0
 
     rows = []
     for idx, nrow in norm_df.iterrows():
@@ -186,14 +211,19 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
     bank_label = scfg.get("bank_label", src_name)
     account_label = scfg.get("account_label", src_name)
 
-    acct_added = insert_into_account_sheet(
+    acct_added, acct_existing = insert_into_account_sheet(
         xlsx, account_sheet, bank_label, account_label, rows, raw_map=raw_map, 
-        source_config=scfg, dry=args.dry_run
+        source_config=scfg, dry=args.dry_run, start_date=args.start, end_date=args.end
     )
-    det_added = insert_into_details(xlsx, details_sheet, bank_label, account_label, rows, dry=args.dry_run)
+    det_added, det_existing = insert_into_details(xlsx, details_sheet, bank_label, account_label, rows, dry=args.dry_run)
+    print(f"  existing records: {acct_existing}")
     print(f"  -> per-account added: {acct_added}, details added: {det_added}")
 
-    return acct_added, det_added
+    # Calculate deduped count (total rows - added rows)
+    total_rows = len(rows)
+    deduped_count = total_rows - det_added
+    
+    return acct_added, det_added, nat_count, deduped_count, acct_existing
 
 
 def main() -> None:
@@ -280,21 +310,32 @@ def main() -> None:
 
         total_details = 0
         total_accounts = 0
+        total_preexisting = 0
+        total_deduped = 0
+        total_nat = 0
         sources_processed = 0
         sources_with_data = 0
         source_results = []
+        existing_counts = []
+
 
         for src_name, scfg in cfg["sources"].items():
             sources_processed += 1
-            acct_added, det_added = process_source(src_name, scfg, xlsx, details_sheet, args)
+            acct_added, det_added, nat_count, deduped_count, existing_records = process_source(src_name, scfg, xlsx, details_sheet, args)
             total_accounts += acct_added
             total_details += det_added
+            total_nat += nat_count
+            total_deduped += deduped_count
+            # Use account sheet existing count (not details sheet to avoid duplicates)
+            total_preexisting += existing_records
+            existing_counts.append(existing_records)
             source_results.append((src_name, acct_added, det_added))
             if acct_added > 0 or det_added > 0:
                 sources_with_data += 1
 
         print(f"\nSummary: {sources_processed} sources processed, {sources_with_data} had data")
         print(f"per-account added={total_accounts}, details added={total_details}")
+        print(f"Pre-existing rows={total_preexisting}, Deduped rows={total_deduped}, NaT (Not a Time) total={total_nat}")
         if xlsx.exists():
             print(f"Modified (after): {get_timestamp(xlsx)}")
         
@@ -316,13 +357,21 @@ def main() -> None:
                     print("\n=== REAL IMPORT ===")
                     total_details = 0
                     total_accounts = 0
+                    total_nat = 0
+                    total_deduped = 0
+                    total_preexisting = 0
                     final_results = []
                     for src_name, scfg in cfg["sources"].items():
-                        acct_added, det_added = process_source(src_name, scfg, xlsx, details_sheet, args)
+                        acct_added, det_added, nat_count, deduped_count, existing_records = process_source(src_name, scfg, xlsx, details_sheet, args)
                         total_accounts += acct_added
                         total_details += det_added
+                        total_nat += nat_count
+                        total_deduped += deduped_count
+                        # Use account sheet existing count
+                        total_preexisting += existing_records
                         final_results.append((src_name, acct_added, det_added))
                     print(f"\nFinal: per-account added={total_accounts}, details added={total_details}")
+                    print(f"Pre-existing rows={total_preexisting}, Deduped rows={total_deduped}, NaT (Not a Time) total={total_nat}")
                     
                     # Check for deduplication discrepancies in final run
                     if total_accounts != total_details:

@@ -76,7 +76,7 @@ def fix_shifted_formulas(ws, col_acc_period: int) -> None:
 
 
 def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str, 
-                       account_label: str, rows: List[Dict[str, Any]], dry: bool = False) -> int:
+                       account_label: str, rows: List[Dict[str, Any]], dry: bool = False) -> tuple[int, int]:
     """Insert rows into the Details sheet."""
     if not rows:
         return 0
@@ -182,12 +182,13 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         save_workbook_safe(wb, validated_xlsx)
     elif not dry:
         save_workbook_safe(wb, validated_xlsx)
-    return added
+    return added, len(existing_keys)
 
 
 def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str, account_label: str,
                              rows: List[Dict[str, Any]], raw_map: Optional[Dict[str, str]], 
-                             source_config: Optional[Dict[str, Any]] = None, dry: bool = False) -> int:
+                             source_config: Optional[Dict[str, Any]] = None, dry: bool = False, 
+                             start_date=None, end_date=None) -> tuple[int, int]:
     """Insert rows into account-specific sheet."""
     if not rows:
         return 0
@@ -260,9 +261,34 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
         return tuple(key_parts)
 
     existing = set()
+    existing_in_range = 0
     if chosen:
         for row_index in range(2, ws.max_row + 1):
-            existing.add(existing_key(row_index))
+            key = existing_key(row_index)
+            existing.add(key)
+            
+            # Count existing records in date range
+            if start_date or end_date:
+                date_col_name = None
+                for n in chosen:
+                    if DATE_SEARCH_PATTERN.search(n):
+                        date_col_name = n
+                        break
+                
+                if date_col_name:
+                    date_val = ws.cell(row=row_index, column=raw_cols_indices[date_col_name]).value
+                    try:
+                        row_date = pd.to_datetime(date_val)
+                        if start_date and row_date < pd.to_datetime(start_date):
+                            continue
+                        if end_date and row_date > pd.to_datetime(end_date):
+                            continue
+                        existing_in_range += 1
+                    except (ValueError, TypeError):
+                        pass
+            else:
+                existing_in_range += 1
+                
         logging.info(f"Found {len(existing)} existing records for dedup in {bank_label} {account_label}")
     else:
         logging.warning(f"No dedup columns found for {bank_label} {account_label}")
@@ -354,4 +380,4 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
 
     if not dry:
         save_workbook_safe(wb, validated_xlsx)
-    return added
+    return added, existing_in_range
