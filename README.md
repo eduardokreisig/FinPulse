@@ -19,9 +19,12 @@ FinPulse/
   src/
     finpulse/                 # Main package
       __init__.py
-      main.py                 # Entry point
+      main.py                 # Minimal entry point
       config/
         loader.py             # Config loading
+      core/
+        processor.py          # Source processing logic
+        runner.py             # Application orchestration
       data/
         csv_reader.py         # CSV parsing
         normalizer.py         # Data normalization
@@ -29,6 +32,8 @@ FinPulse/
       excel/
         workbook.py           # Excel utilities
         sheet_inserter.py     # Row insertion
+      ui/
+        interactive.py        # User interaction
       utils/
         logging_utils.py      # Logging & Tee class
         path_utils.py         # Path validation
@@ -109,6 +114,9 @@ python src/fin_statements_ingest.py --config config/config.yaml
 - **Data processing**: Modify `src/finpulse/data/normalizer.py` for custom cleaning, payee normalization, category mapping
 - **Excel operations**: Update `src/finpulse/excel/sheet_inserter.py` for custom formatting
 - **File handling**: Extend `src/finpulse/data/csv_reader.py` for new data sources
+- **Core logic**: Modify `src/finpulse/core/processor.py` for source processing changes
+- **Application flow**: Update `src/finpulse/core/runner.py` for orchestration changes
+- **User interface**: Enhance `src/finpulse/ui/interactive.py` for better user experience
 - **Utilities**: Add new utilities in `src/finpulse/utils/`
 - **Configuration**: Enhance `src/finpulse/config/loader.py` for advanced config features
 - **Automation**: Use the shell script with cron/launchd **(respecting your bank's terms of service)**
