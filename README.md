@@ -3,29 +3,37 @@
 This toolkit helps you pull exported transactions from multiple banks and append them into your existing Excel workbook with one command, while keeping per‑bank account sheets and a consolidated Details tab up to date.
 
 ## What you get
-- **src/finpulse/main.py** – reads your bank exports (CSV), normalizes columns, de‑dupes, appends into per‑bank account sheets, and updates a **Details** tab.
-- **config/config.yaml** – where you define your target workbook, per‑source file globs, and column mappings.
-- Modular Python package with separate modules for data processing, Excel operations, and utilities.
+- **src/finpulse/** – modular Python package with separate modules for data processing, Excel operations, and utilities
+- **src/fin_statements_ingest.py** – main entry point that uses the modular package
+- **config/config.yaml** – where you define your target workbook, per‑source file globs, and column mappings
+- Clean, maintainable code following Python best practices
 
 ## Prerequisites
 ```bash
 python3 -m pip install pandas openpyxl pyyaml
 ```
 
-## Folder layout (example)
+## Folder layout
 ```
 FinPulse/
   src/
-    finpulse/
-      main.py
+    finpulse/                 # Main package
+      __init__.py
+      main.py                 # Entry point
       config/
-        loader.py
+        loader.py             # Config loading
       data/
-        csv_reader.py
-        normalizer.py
+        csv_reader.py         # CSV parsing
+        normalizer.py         # Data normalization
+        file_collector.py     # File discovery
       excel/
-        sheet_inserter.py
+        workbook.py           # Excel utilities
+        sheet_inserter.py     # Row insertion
       utils/
+        logging_utils.py      # Logging & Tee class
+        path_utils.py         # Path validation
+        date_utils.py         # Date parsing
+    fin_statements_ingest.py  # Main entry point
   config/
     config.yaml
   scripts/
@@ -58,6 +66,9 @@ Edit **config/config.yaml**:
 ```bash
 # Interactive setup with prompts
 python3 -m src.finpulse.main
+
+# Or use the provided script (runs interactive mode)
+./scripts/run-finance-ingest.sh
 ```
 This will prompt you for:
 - Config file location (default: config/config.yaml)
@@ -73,11 +84,11 @@ This will prompt you for:
 # From the FinPulse directory
 python3 -m src.finpulse.main --config config/config.yaml --start 2025-01-01 --end 2025-10-11
 
-# Or use the provided script
-./scripts/run-finance-ingest.sh
-
 # Dry run to test without changes
 python3 -m src.finpulse.main --config config/config.yaml --dry-run
+
+# Direct script execution (alternative)
+python src/fin_statements_ingest.py --config config/config.yaml
 ```
 - The script appends only **new** rows by computing deduplication keys from date, description, and amount.
 - It writes to account-specific sheets (e.g., "Chase Checkings") and updates the "Details" sheet.
@@ -95,13 +106,19 @@ python3 -m src.finpulse.main --config config/config.yaml --dry-run
 - After a dry run, you can choose to proceed with the real import immediately.
 
 ## Extending
-- Add custom cleaning in `src/finpulse/data/normalizer.py` - e.g., payee normalization, category mapping.
-- Modify Excel operations in `src/finpulse/excel/sheet_inserter.py` for custom formatting.
-- Add new data sources by extending `src/finpulse/data/csv_reader.py`.
-- For automation, use the provided shell script with cron/launchd **(respecting your bank's terms of service)**.
+- **Data processing**: Modify `src/finpulse/data/normalizer.py` for custom cleaning, payee normalization, category mapping
+- **Excel operations**: Update `src/finpulse/excel/sheet_inserter.py` for custom formatting
+- **File handling**: Extend `src/finpulse/data/csv_reader.py` for new data sources
+- **Utilities**: Add new utilities in `src/finpulse/utils/`
+- **Configuration**: Enhance `src/finpulse/config/loader.py` for advanced config features
+- **Automation**: Use the shell script with cron/launchd **(respecting your bank's terms of service)**
 
 ## Architecture
-- **Modular design**: Separate concerns (config, data, Excel, utils)
+- **Modular design**: Clean separation of concerns across focused modules
+- **Python best practices**: Proper package structure, type hints, error handling
+- **Single responsibility**: Each module under 200 lines with clear purpose
+- **Testability**: Modules can be unit tested independently
+- **Maintainability**: Easy to find, modify, and extend specific functionality
 - **Robust error handling**: Graceful failures with detailed logging
 - **Data preservation**: Raw bank data maintained alongside normalized data
 - **Flexible configuration**: YAML-based setup for easy bank addition
