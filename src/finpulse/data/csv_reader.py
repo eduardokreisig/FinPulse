@@ -61,8 +61,17 @@ def load_inputs_for_source(src_cfg: dict) -> pd.DataFrame:
     else:
         print("  no frames loaded")
     
+    if not frames:
+        return pd.DataFrame()
+    
+    # Filter out empty DataFrames to avoid FutureWarning
+    non_empty_frames = [df for df in frames if not df.empty]
+    
+    if not non_empty_frames:
+        return pd.DataFrame()
+    
     try:
-        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        return pd.concat(non_empty_frames, ignore_index=True)
     except (ValueError, pd.errors.InvalidIndexError) as e:
         logging.error(f"Failed to concatenate dataframes: {e}")
         raise
