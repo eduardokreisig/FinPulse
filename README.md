@@ -104,6 +104,7 @@ python src/fin_statements_ingest.py --config config/config.yaml
 - Export as **CSV** from your banks for best compatibility.
 - Use interactive mode for first-time setup - it guides you through configuration.
 - The tool automatically detects date, amount, and description columns.
+- **Mixed date formats**: When using `%m/%d/%y` format, the tool automatically handles both 2-digit (25) and 4-digit (2025) years in the same account by truncating 4-digit years to 2-digit.
 - Raw bank data is preserved in columns K+ for audit trails.
 - Logging is available - check the log directory for detailed processing info.
 - If you change mappings, re-run—deduplication prevents duplicates.
