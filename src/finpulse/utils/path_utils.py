@@ -1,7 +1,9 @@
 """Path validation and utilities."""
 
 import logging
+import shutil
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -29,3 +31,26 @@ def get_timestamp(p: Path) -> str:
     except (OSError, FileNotFoundError, ValueError) as e:
         logging.warning(f"Failed to get timestamp for {p}: {e}")
         return "n/a"
+
+
+def create_timestamped_copy(original_path: Path) -> Path:
+    """Create a timestamped copy of the original file."""
+    if not original_path.exists():
+        raise FileNotFoundError(f"Original file does not exist: {original_path}")
+    
+    # Generate ISO 8601 timestamp with local timezone, replacing colons with hyphens for filename compatibility
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S.%f")[:-3]  # Remove last 3 digits from microseconds
+    
+    # Create new filename: <original_name> <timestamp>.<extension>
+    stem = original_path.stem
+    suffix = original_path.suffix
+    new_name = f"{stem} {timestamp}{suffix}"
+    copy_path = original_path.parent / new_name
+    
+    try:
+        shutil.copy2(original_path, copy_path)
+        logging.info(f"Created timestamped copy: {copy_path}")
+        return copy_path
+    except (OSError, PermissionError) as e:
+        logging.error(f"Failed to create timestamped copy: {e}")
+        raise

@@ -8,7 +8,7 @@ from .processor import process_source
 from ..config.loader import get_log_directory, load_config
 from ..ui.interactive import get_interactive_config, get_yes_no
 from ..utils.logging_utils import Tee, setup_logging, utc_log_name
-from ..utils.path_utils import get_timestamp
+from ..utils.path_utils import create_timestamped_copy, get_timestamp
 
 
 def setup_log_file(log_dir: Path, is_dry_run: bool):
@@ -150,19 +150,33 @@ def run_application(args):
     try:
         log_fp, orig_stdout, tee = setup_log_file(log_dir, args.dry_run)
 
-        xlsx = Path(cfg['target_workbook']).expanduser().resolve()
+        original_xlsx = Path(cfg['target_workbook']).expanduser().resolve()
         details_sheet = cfg.get("details_sheet", "Details")
 
-        print(f"Workbook: {xlsx}")
-        if not xlsx.exists():
+        print(f"Original Workbook: {original_xlsx}")
+        if not original_xlsx.exists():
             print(f"  exists: False  size: 0 bytes")
             print(f"  modified: n/a")
-            print(f"Warning: Target workbook '{xlsx}' does not exist")
+            print(f"Warning: Target workbook '{original_xlsx}' does not exist")
             if not args.dry_run and not get_yes_no("Continue anyway?", False):
                 sys.exit(1)
+            xlsx = original_xlsx  # Use original path if it doesn't exist
         else:
-            print(f"  exists: True  size: {xlsx.stat().st_size} bytes")
-            print(f"  modified: {get_timestamp(xlsx)}")
+            print(f"  exists: True  size: {original_xlsx.stat().st_size} bytes")
+            print(f"  modified: {get_timestamp(original_xlsx)}")
+            
+            # Create timestamped copy for processing
+            if not args.dry_run:
+                try:
+                    xlsx = create_timestamped_copy(original_xlsx)
+                    print(f"Working Copy: {xlsx}")
+                except (FileNotFoundError, OSError, PermissionError) as e:
+                    print(f"Error creating timestamped copy: {e}")
+                    if not get_yes_no("Continue with original file?", False):
+                        sys.exit(1)
+                    xlsx = original_xlsx
+            else:
+                xlsx = original_xlsx  # Use original for dry runs
 
         results = run_processing(cfg, args, xlsx, details_sheet)
         
@@ -171,9 +185,18 @@ def run_application(args):
             total_accounts, total_details = results[0], results[1]
             if total_accounts > 0 or total_details > 0:
                 if get_yes_no("\nProceed with real import?", False):
+                    # Create timestamped copy for real import
+                    if original_xlsx.exists():
+                        try:
+                            xlsx = create_timestamped_copy(original_xlsx)
+                            print(f"\n=== REAL IMPORT ===\nWorking Copy: {xlsx}")
+                        except (FileNotFoundError, OSError, PermissionError) as e:
+                            print(f"Error creating timestamped copy: {e}")
+                            if not get_yes_no("Continue with original file?", False):
+                                return
+                            xlsx = original_xlsx
                     # Re-run without dry-run
                     args.dry_run = False
-                    print("\n=== REAL IMPORT ===")
                     final_results = run_processing(cfg, args, xlsx, details_sheet)
                     final_accounts, final_details = final_results[0], final_results[1]
                     final_preexisting, final_deduped, final_nat = final_results[2], final_results[3], final_results[4]

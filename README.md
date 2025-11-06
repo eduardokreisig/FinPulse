@@ -84,6 +84,8 @@ This will prompt you for:
 - Start/end dates for import
 - Whether to proceed with real import after dry run
 
+**Important**: FinPulse automatically creates a timestamped copy of your original workbook before making any changes. The copy is named `<Original File name> <timestamp>.xlsx` (e.g., `FinanceWorkbook 2025 2024-01-01T12-00-00.123.xlsx`) and saved in the same directory as the original. Your original file remains untouched.
+
 ### Command Line Mode
 ```bash
 # From the FinPulse directory
@@ -95,6 +97,7 @@ python3 -m src.finpulse.main --config config/config.yaml --dry-run
 # Direct script execution (alternative)
 python src/fin_statements_ingest.py --config config/config.yaml
 ```
+- **Automatic backup**: Creates a timestamped copy of your workbook before making changes, preserving your original file.
 - The script appends only **new** rows by computing deduplication keys from date, description, and amount.
 - It writes to account-specific sheets (e.g., "Chase Checkings") and updates the "Details" sheet.
 - Raw bank data is preserved in columns K+ for traceability.
@@ -104,6 +107,7 @@ python src/fin_statements_ingest.py --config config/config.yaml
 - Export as **CSV** from your banks for best compatibility.
 - Use interactive mode for first-time setup - it guides you through configuration.
 - The tool automatically detects date, amount, and description columns.
+- **Automatic backup**: Your original workbook is never modified - all changes are made to timestamped copies.
 - **Mixed date formats**: When using `%m/%d/%y` format, the tool automatically handles both 2-digit (25) and 4-digit (2025) years in the same account by truncating 4-digit years to 2-digit.
 - Raw bank data is preserved in columns K+ for audit trails.
 - Logging is available - check the log directory for detailed processing info.
@@ -130,4 +134,5 @@ python src/fin_statements_ingest.py --config config/config.yaml
 - **Maintainability**: Easy to find, modify, and extend specific functionality
 - **Robust error handling**: Graceful failures with detailed logging
 - **Data preservation**: Raw bank data maintained alongside normalized data
+- **Automatic backup**: Creates timestamped copies to preserve original workbooks
 - **Flexible configuration**: YAML-based setup for easy bank addition
