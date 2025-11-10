@@ -16,16 +16,52 @@ from .workbook import (
 )
 
 
+def is_safe_formula(formula: str) -> bool:
+    """Check if formula is safe to use (no dangerous functions)."""
+    if not isinstance(formula, str) or not formula.startswith("="):
+        return False
+    
+    # List of potentially dangerous Excel functions
+    dangerous_functions = [
+        'INDIRECT', 'OFFSET', 'INDEX', 'EXEC', 'CALL', 'REGISTER',
+        'EVALUATE', 'HYPERLINK', 'WEBSERVICE', 'FILTERXML'
+    ]
+    
+    formula_upper = formula.upper()
+    return not any(func in formula_upper for func in dangerous_functions)
+
+
+def sanitize_row_number(row_num: int, max_row: int = 1048576) -> int:
+    """Sanitize row number to prevent injection."""
+    if not isinstance(row_num, int) or row_num < 1 or row_num > max_row:
+        raise ValueError(f"Invalid row number: {row_num}")
+    return row_num
+
+
 def copy_formulas_to_row(ws, src_row: int, dst_row: int, max_col: int = None) -> None:
     """Copy and translate formulas from source row to destination row."""
+    # Validate inputs
+    src_row = sanitize_row_number(src_row)
+    dst_row = sanitize_row_number(dst_row)
+    
     max_col = max_col or ws.max_column
     for c in range(1, max_col + 1):
         src = ws.cell(row=src_row, column=c)
         dst = ws.cell(row=dst_row, column=c)
+        
         if isinstance(src.value, str) and src.value.startswith("="):
+            # Only process safe formulas
             try:
-                # Only translate if it's a simple formula, skip complex ones
-                if len(src.value) < 100 and not any(x in src.value.upper() for x in ['INDIRECT', 'OFFSET', 'INDEX']):
+                if not is_safe_formula(src.value):
+                    logging.warning(f"Skipping unsafe formula at {src.coordinate}: {src.value[:50]}...")
+                    continue
+            except Exception as e:
+                logging.error(f"Formula safety check failed: {e}")
+                continue
+                
+            try:
+                # Only translate simple formulas
+                if len(src.value) < 100:
                     dst.value = Translator(src.value, origin=src.coordinate).translate_formula(dst.coordinate)
                 else:
                     # For complex formulas, just copy as-is to avoid corruption
@@ -34,6 +70,22 @@ def copy_formulas_to_row(ws, src_row: int, dst_row: int, max_col: int = None) ->
                 # If translation fails, copy the original formula
                 dst.value = src.value
                 logging.debug(f"Skipped formula translation for {src.coordinate}: {e}")
+
+
+def safe_set_cell(ws, row: int, col: int, value: Any) -> None:
+    """Safely set cell value if column exists and write is allowed."""
+    if col and not should_skip_write(ws, row, col):
+        # Sanitize inputs
+        try:
+            row = sanitize_row_number(row)
+            if isinstance(value, str) and value.startswith("="):
+                if not is_safe_formula(value):
+                    logging.warning(f"Blocked unsafe formula: {value[:50]}...")
+                    return
+            ws.cell(row=row, column=col).value = value
+        except (ValueError, TypeError) as e:
+            logging.error(f"Failed to set cell value: {e}")
+            return
 
 
 def calculate_amount_from_withdrawals_deposits(w_amt: float, d_amt: float) -> float:
@@ -68,11 +120,21 @@ def fix_shifted_formulas(ws, col_acc_period: int) -> None:
             pattern = r'=DATE\(YEAR\(C(\d+)\),\s*MONTH\(C(\d+)\),\s*1\)'
             match = re.match(pattern, cell.value)
             if match:
-                ref_row1, ref_row2 = int(match.group(1)), int(match.group(2))
-                # If both references point to the same row but not the current row, fix it
-                if ref_row1 == ref_row2 and ref_row1 != row_idx:
-                    corrected_formula = f"=DATE(YEAR(C{row_idx}), MONTH(C{row_idx}), 1)"
-                    cell.value = corrected_formula
+                try:
+                    ref_row1, ref_row2 = int(match.group(1)), int(match.group(2))
+                    # Validate row numbers
+                    sanitize_row_number(ref_row1)
+                    sanitize_row_number(ref_row2)
+                    sanitize_row_number(row_idx)
+                    
+                    # If both references point to the same row but not the current row, fix it
+                    if ref_row1 == ref_row2 and ref_row1 != row_idx:
+                        corrected_formula = f"=DATE(YEAR(C{row_idx}), MONTH(C{row_idx}), 1)"
+                        if is_safe_formula(corrected_formula):
+                            cell.value = corrected_formula
+                except (ValueError, TypeError) as e:
+                    logging.warning(f"Invalid row reference in formula: {e}")
+                    continue
 
 
 def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str, 
@@ -143,36 +205,30 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         # Copy formulas from source row
         copy_formulas_to_row(ws, src_row, ins_at)
 
-        def safe_set(ci, value):
-            if ci and not should_skip_write(ws, ins_at, ci):
-                ws.cell(row=ins_at, column=ci).value = value
-
-        safe_set(col_bank, bank_label)
-        safe_set(col_account, account_label)
-        safe_set(col_date, dkey)
-        safe_set(col_desc, row_data["description"])
+        safe_set_cell(ws, ins_at, col_bank, bank_label)
+        safe_set_cell(ws, ins_at, col_account, account_label)
+        safe_set_cell(ws, ins_at, col_date, dkey)
+        safe_set_cell(ws, ins_at, col_desc, row_data["description"])
 
         amt = float(row_data["amount"] or 0.0)
         if amt < 0:
-            safe_set(col_w, amt)  # Keep negative value
-            safe_set(col_d, 0.0)
+            safe_set_cell(ws, ins_at, col_w, amt)  # Keep negative value
+            safe_set_cell(ws, ins_at, col_d, 0.0)
         else:
-            safe_set(col_w, 0.0)
-            safe_set(col_d, amt)
+            safe_set_cell(ws, ins_at, col_w, 0.0)
+            safe_set_cell(ws, ins_at, col_d, amt)
 
-
-
-        if col_acc_period and hasattr(dkey, "replace") and not should_skip_write(ws, ins_at, col_acc_period):
-            ws.cell(row=ins_at, column=col_acc_period).value = dkey.replace(day=1)
+        if col_acc_period and hasattr(dkey, "replace"):
+            safe_set_cell(ws, ins_at, col_acc_period, dkey.replace(day=1))
         if col_type:
-            formula = f'=IF(AND(F{ins_at}<>0,G{ins_at}<>0),"Error",IF(F{ins_at}<0,"Withdrawal",IF(G{ins_at}>0,"Deposit","")))'
-            ws.cell(row=ins_at, column=col_type).value = formula
-        if col_rev and not should_skip_write(ws, ins_at, col_rev):
-            ws.cell(row=ins_at, column=col_rev).value = "No"
-        if col_notes and not should_skip_write(ws, ins_at, col_notes):
-            ws.cell(row=ins_at, column=col_notes).value = None
-        if col_type_manual and not should_skip_write(ws, ins_at, col_type_manual):
-            ws.cell(row=ins_at, column=col_type_manual).value = None
+            # Validate row number before creating formula
+            safe_row = sanitize_row_number(ins_at)
+            formula = f'=IF(AND(F{safe_row}<>0,G{safe_row}<>0),"Error",IF(F{safe_row}<0,"Withdrawal",IF(G{safe_row}>0,"Deposit","")))'  
+            if is_safe_formula(formula):
+                ws.cell(row=ins_at, column=col_type).value = formula
+        safe_set_cell(ws, ins_at, col_rev, "No")
+        safe_set_cell(ws, ins_at, col_notes, None)
+        safe_set_cell(ws, ins_at, col_type_manual, None)
 
         added += 1
         
@@ -194,7 +250,7 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
                              start_date=None, end_date=None) -> tuple[int, int]:
     """Insert rows into account-specific sheet."""
     if not rows:
-        return 0
+        return 0, 0
     
     wb, validated_xlsx = load_workbook_safe(xlsx_path)
     
@@ -361,10 +417,8 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
         
         last_data_row = ins_at  # Update for next insertion
 
-        if isinstance(col_bank, int) and not should_skip_write(ws, ins_at, col_bank):
-            ws.cell(row=ins_at, column=col_bank).value = bank_label
-        if isinstance(col_account, int) and not should_skip_write(ws, ins_at, col_account):
-            ws.cell(row=ins_at, column=col_account).value = account_label
+        safe_set_cell(ws, ins_at, col_bank, bank_label)
+        safe_set_cell(ws, ins_at, col_account, account_label)
 
         for sheet_header, csv_col in (raw_map or {}).items():
             ci = raw_cols_indices.get(sheet_header)
@@ -376,8 +430,7 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
                     cell_value = pd.to_datetime(cell_value).date()
                 except (ValueError, TypeError):
                     pass
-            if not should_skip_write(ws, ins_at, ci):
-                ws.cell(row=ins_at, column=ci).value = cell_value
+            safe_set_cell(ws, ins_at, ci, cell_value)
 
         added += 1
 

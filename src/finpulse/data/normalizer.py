@@ -53,6 +53,38 @@ def resolve_col(df: pd.DataFrame, declared: Optional[str], fallback_cands: List[
     return cols[0], df[cols[0]]
 
 
+def resolve_multiple_cols(df: pd.DataFrame, config: dict, col_mappings: dict) -> dict:
+    """Resolve multiple columns at once using configuration."""
+    results = {}
+    # Pre-compute column mapping for efficiency
+    cols = list(df.columns)
+    cmap = {clean_string(c): c for c in cols}
+    
+    for key, (declared_key, candidates) in col_mappings.items():
+        declared = config.get(declared_key)
+        if declared:
+            norm = clean_string(declared)
+            if norm in cmap:
+                col_name = cmap[norm]
+                results[key] = (col_name, df[col_name])
+                continue
+        
+        # Fallback to candidates
+        found = False
+        for cand in candidates:
+            k = clean_string(cand)
+            if k in cmap:
+                col_name = cmap[k]
+                results[key] = (col_name, df[col_name])
+                found = True
+                break
+        
+        if not found and cols:
+            results[key] = (cols[0], df[cols[0]])
+    
+    return results
+
+
 def apply_column_mapping(df: pd.DataFrame, mapping: Optional[dict]) -> pd.DataFrame:
     """Apply column name mapping if provided."""
     if not mapping:
@@ -93,15 +125,18 @@ def normalize(df_in: pd.DataFrame, norm_cfg: dict) -> pd.DataFrame:
     """Normalize DataFrame columns and data types."""
     df = apply_column_mapping(df_in.copy(), norm_cfg.get("columns"))
 
-    declared_date = norm_cfg.get("date_col")
-    declared_desc = norm_cfg.get("description_col")
-    declared_amt = norm_cfg.get("amount_col")
-
-    date_name, date_raw = resolve_col(df, declared_date, DATE_CANDIDATES)
-    desc_name, desc_raw = resolve_col(df, declared_desc, DESC_CANDIDATES)
+    # Resolve columns using the new helper function
+    col_mappings = {
+        'date': ('date_col', DATE_CANDIDATES),
+        'desc': ('description_col', DESC_CANDIDATES)
+    }
+    resolved = resolve_multiple_cols(df, norm_cfg, col_mappings)
+    date_name, date_raw = resolved['date']
+    desc_name, desc_raw = resolved['desc']
 
     # If a specific amount_col is declared, use it; else infer
     amount_col = None
+    declared_amt = norm_cfg.get("amount_col")
     if declared_amt and declared_amt in df.columns:
         amount_col = declared_amt
     else:

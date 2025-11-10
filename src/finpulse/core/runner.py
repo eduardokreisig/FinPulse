@@ -66,6 +66,34 @@ def print_summary(sources_processed: int, sources_with_data: int, total_accounts
     print(f"Pre-existing rows={total_preexisting}, Deduped rows={total_deduped}, NaT (Not a Time) total={total_nat}")
 
 
+def run_ml_inference_if_requested(cfg: dict, xlsx_path: str, has_new_data: bool):
+    """Run ML inference if user confirms and there's new data."""
+    if not has_new_data:
+        return
+    
+    if get_yes_no("Run and ingest Machine Learning predictions for Classification and Type columns?", False):
+        try:
+            from ..ml.pipeline import run_ml_pipeline
+            run_ml_pipeline(cfg, str(xlsx_path))
+        except ImportError:
+            print("⚠️ ML module not available. Skipping ML inference.")
+        except Exception as e:
+            print(f"⚠️ ML inference failed: {e}")
+
+
+def create_working_copy(original_xlsx: Path) -> Path:
+    """Create timestamped copy with error handling."""
+    try:
+        xlsx = create_timestamped_copy(original_xlsx)
+        print(f"Working Copy: {xlsx}")
+        return xlsx
+    except (FileNotFoundError, OSError, PermissionError) as e:
+        print(f"Error creating timestamped copy: {e}")
+        if not get_yes_no("Continue with original file?", False):
+            raise
+        return original_xlsx
+
+
 def check_discrepancies(total_accounts: int, total_details: int, source_results: list):
     """Check and report deduplication discrepancies."""
     if total_accounts != total_details:
@@ -103,7 +131,7 @@ def run_processing(cfg: dict, args, xlsx: Path, details_sheet: str):
         if acct_added > 0 or det_added > 0:
             sources_with_data += 1
 
-    source_names = [src_name for src_name in cfg["sources"].keys()]
+    source_names = list(cfg["sources"].keys())
     print_summary(sources_processed, sources_with_data, total_accounts, total_details,
                  source_names, existing_counts, total_preexisting, total_deduped, total_nat)
     
@@ -168,29 +196,22 @@ def run_application(args):
             # Create timestamped copy for processing
             if not args.dry_run:
                 try:
-                    xlsx = create_timestamped_copy(original_xlsx)
-                    print(f"Working Copy: {xlsx}")
-                except (FileNotFoundError, OSError, PermissionError) as e:
-                    print(f"Error creating timestamped copy: {e}")
-                    if not get_yes_no("Continue with original file?", False):
-                        sys.exit(1)
-                    xlsx = original_xlsx
+                    xlsx = create_working_copy(original_xlsx)
+                except Exception as e:
+                    print(f"Failed to create working copy: {e}")
+                    sys.exit(1)
             else:
                 xlsx = original_xlsx  # Use original for dry runs
 
-        results = run_processing(cfg, args, xlsx, details_sheet)
+        try:
+            results = run_processing(cfg, args, xlsx, details_sheet)
+        except Exception as e:
+            print(f"Processing failed: {e}")
+            return
         
         # Run ML inference after successful processing (non-dry-run only)
-        if not args.dry_run and (results[0] > 0 or results[1] > 0):
-            from ..ui.interactive import get_yes_no
-            if get_yes_no("Run and ingest Machine Learning predictions for Classification and Type columns?", False):
-                try:
-                    from ..ml.pipeline import run_ml_pipeline
-                    run_ml_pipeline(cfg, str(xlsx))
-                except ImportError:
-                    print("⚠️ ML module not available. Skipping ML inference.")
-                except Exception as e:
-                    print(f"⚠️ ML inference failed: {e}")
+        if not args.dry_run:
+            run_ml_inference_if_requested(cfg, str(xlsx), results[0] > 0 or results[1] > 0)
         
         if args.dry_run:
             print("(dry-run) No changes written.")
@@ -200,13 +221,11 @@ def run_application(args):
                     # Create timestamped copy for real import
                     if original_xlsx.exists():
                         try:
-                            xlsx = create_timestamped_copy(original_xlsx)
-                            print(f"\n=== REAL IMPORT ===\nWorking Copy: {xlsx}")
-                        except (FileNotFoundError, OSError, PermissionError) as e:
-                            print(f"Error creating timestamped copy: {e}")
-                            if not get_yes_no("Continue with original file?", False):
-                                return
-                            xlsx = original_xlsx
+                            xlsx = create_working_copy(original_xlsx)
+                            print(f"\n=== REAL IMPORT ===")
+                        except Exception as e:
+                            print(f"Failed to create working copy for real import: {e}")
+                            return
                     # Re-run without dry-run
                     args.dry_run = False
                     final_results = run_processing(cfg, args, xlsx, details_sheet)
@@ -218,15 +237,7 @@ def run_application(args):
                     check_discrepancies(final_accounts, final_details, final_source_results)
                     
                     # Run ML inference after successful real import
-                    if final_accounts > 0 or final_details > 0:
-                        if get_yes_no("Run and ingest Machine Learning predictions for Classification and Type columns?", False):
-                            try:
-                                from ..ml.pipeline import run_ml_pipeline
-                                run_ml_pipeline(cfg, str(xlsx))
-                            except ImportError:
-                                print("⚠️ ML module not available. Skipping ML inference.")
-                            except Exception as e:
-                                print(f"⚠️ ML inference failed: {e}")
+                    run_ml_inference_if_requested(cfg, str(xlsx), final_accounts > 0 or final_details > 0)
                     
                     print("Done.")
         else:
@@ -236,8 +247,11 @@ def run_application(args):
         print("\nOperation cancelled by user")
         return
     except Exception as e:
-        print("ERROR:", e)
-        print(traceback.format_exc())
+        print(f"ERROR: {e}")
+        import logging
+        logging.error(f"Application error: {e}")
+        if hasattr(args, 'debug') and getattr(args, 'debug', False):
+            print(traceback.format_exc())
         return
     finally:
         # Restore stdout first
