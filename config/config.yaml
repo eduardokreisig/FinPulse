@@ -102,3 +102,10 @@ sources:
     date_col: Posting Date
     date_format: "%m/%d/%y"
     description_col: Description
+ml:
+  text_encoder: tfidf           # or "sbert"
+  model_a:
+    algorithm: random_forest
+  model_b:
+    algorithm: logistic_regression
+  rare_label_threshold: 10

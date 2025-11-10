@@ -180,6 +180,18 @@ def run_application(args):
 
         results = run_processing(cfg, args, xlsx, details_sheet)
         
+        # Run ML inference after successful processing (non-dry-run only)
+        if not args.dry_run and (results[0] > 0 or results[1] > 0):
+            from ..ui.interactive import get_yes_no
+            if get_yes_no("Run and ingest Machine Learning predictions for Classification and Type columns?", False):
+                try:
+                    from ..ml.pipeline import run_ml_pipeline
+                    run_ml_pipeline(cfg, str(xlsx))
+                except ImportError:
+                    print("⚠️ ML module not available. Skipping ML inference.")
+                except Exception as e:
+                    print(f"⚠️ ML inference failed: {e}")
+        
         if args.dry_run:
             print("(dry-run) No changes written.")
             total_accounts, total_details = results[0], results[1]
@@ -204,6 +216,18 @@ def run_application(args):
                     print(f"\nFinal: per-account added={final_accounts}, details added={final_details}")
                     print(f"Pre-existing rows={final_preexisting}, Deduped rows={final_deduped}, NaT (Not a Time) total={final_nat}")
                     check_discrepancies(final_accounts, final_details, final_source_results)
+                    
+                    # Run ML inference after successful real import
+                    if final_accounts > 0 or final_details > 0:
+                        if get_yes_no("Run and ingest Machine Learning predictions for Classification and Type columns?", False):
+                            try:
+                                from ..ml.pipeline import run_ml_pipeline
+                                run_ml_pipeline(cfg, str(xlsx))
+                            except ImportError:
+                                print("⚠️ ML module not available. Skipping ML inference.")
+                            except Exception as e:
+                                print(f"⚠️ ML inference failed: {e}")
+                    
                     print("Done.")
         else:
             print("Done.")
