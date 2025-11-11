@@ -44,36 +44,11 @@
 
 **Impact**: Users may see incorrect dropdown options when editing the Type field for new transactions, and also a data validation warning on cells generated or updated by this tool.  
 
+## Fixed Issues
+
 ### Issue #4: Date Deduplication Inconsistency
-**Status**: Open  
+**Status**: Fixed  
 **Priority**: Medium  
 **Description**: Deduplication mismatch between Details sheet and account sheets causing inconsistent duplicate detection.
 
-**Symptoms**:
-- Warning message: "Deduplication mismatch - per-account: X, details: Y"
-- Different numbers of records added to Details vs account sheets
-- Specific accounts show discrepancies (e.g., "First Tech - Checkings: per-account=60, details=59")
-
-**Root Cause**: 
-- Details sheet and account sheets use different deduplication logic
-- Date format inconsistencies between 2-digit (%m/%d/%y) and 4-digit year formats
-- Account sheets use raw CSV columns while Details sheet uses normalized data
-- Different key building strategies between the two sheet types
-
-**Impact**: 
-- Duplicate records may be inserted into one sheet but not the other
-- Data integrity issues between consolidated and account-specific views
-- User confusion about actual record counts
-
-**Attempted Fixes**:
-- Standardized `build_dedup_key()` to use YYYY-MM-DD format
-- Attempted to unify deduplication logic between sheet types
-- Multiple iterations failed to resolve the core inconsistency
-
-**Workaround**: None currently available
-
-**Next Steps**: Requires deeper investigation into the fundamental differences between Details and account sheet data structures and deduplication requirements.
-
-## Fixed Issues
-
-None yet.
+**Resolution**: Modified account sheet deduplication logic to always check existing Excel data first, then merge with cumulative keys, matching the Details sheet approach. Both sheets now use consistent deduplication behavior.

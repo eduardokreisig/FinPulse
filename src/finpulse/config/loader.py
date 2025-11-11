@@ -29,7 +29,7 @@ def get_target_workbook_path(cfg: Dict[str, Any]) -> Path:
         raise
 
 
-def get_log_directory(cfg: Dict[str, Any], log_dir_arg: str = None) -> Path:
+def get_log_directory(cfg: Dict[str, Any], log_dir_arg: str = None) -> Path | None:
     """Get and validate log directory path."""
     if log_dir_arg or cfg.get("log_dir"):
         try:

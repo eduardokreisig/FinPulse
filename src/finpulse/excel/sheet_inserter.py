@@ -394,44 +394,46 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
         
         return build_dedup_key(str(bank_val or bank_label), str(account_val or account_label), date_val, desc_val, amt_val)
 
-    # Use cumulative keys if provided, otherwise build from existing data
+    # Always build from existing Excel data, then merge with cumulative keys
+    existing = set()
+    
+    # Add cumulative keys if provided
     if cumulative_keys and 'accounts' in cumulative_keys and sheet_name in cumulative_keys['accounts']:
-        existing = cumulative_keys['accounts'][sheet_name].copy()
-        existing_in_range = len(existing)  # Approximate count
+        existing.update(cumulative_keys['accounts'][sheet_name])
+    
+    # Always also check existing Excel data
+    if chosen:
+        for row_index in range(2, ws.max_row + 1):
+            key = get_existing_key_from_row(row_index)
+            existing.add(key)
+        
+        logging.info(f"Found {len(existing)} existing records for dedup in {bank_label} {account_label}")
     else:
-        existing = set()
-        existing_in_range = 0
-        if chosen:
+        logging.warning(f"No dedup columns found for {bank_label} {account_label}")
+    
+    # Count existing records in date range
+    existing_in_range = 0
+    if chosen and (start_date or end_date):
+        date_col_name = None
+        for n in chosen:
+            if DATE_SEARCH_PATTERN.search(n):
+                date_col_name = n
+                break
+        
+        if date_col_name:
             for row_index in range(2, ws.max_row + 1):
-                key = get_existing_key_from_row(row_index)
-                existing.add(key)
-            
-            # Count existing records in date range
-            if start_date or end_date:
-                date_col_name = None
-                for n in chosen:
-                    if DATE_SEARCH_PATTERN.search(n):
-                        date_col_name = n
-                        break
-                
-                if date_col_name:
-                    for row_index in range(2, ws.max_row + 1):
-                        date_val = ws.cell(row=row_index, column=raw_cols_indices[date_col_name]).value
-                        try:
-                            row_date = pd.to_datetime(date_val)
-                            if start_date and row_date < pd.to_datetime(start_date):
-                                continue
-                            if end_date and row_date > pd.to_datetime(end_date):
-                                continue
-                            existing_in_range += 1
-                        except (ValueError, TypeError):
-                            pass
-            else:
-                existing_in_range = len(existing)
-                
-            logging.info(f"Found {len(existing)} existing records for dedup in {bank_label} {account_label}")
-        else:
-            logging.warning(f"No dedup columns found for {bank_label} {account_label}")
+                date_val = ws.cell(row=row_index, column=raw_cols_indices[date_col_name]).value
+                try:
+                    row_date = pd.to_datetime(date_val)
+                    if start_date and row_date < pd.to_datetime(start_date):
+                        continue
+                    if end_date and row_date > pd.to_datetime(end_date):
+                        continue
+                    existing_in_range += 1
+                except (ValueError, TypeError):
+                    pass
+    else:
+        existing_in_range = len(existing)
 
     # Find actual last row with data
     last_data_row = 1

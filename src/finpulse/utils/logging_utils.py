@@ -2,8 +2,7 @@
 
 import io
 import logging
-from datetime import datetime, timezone
-
+from datetime import datetime
 
 
 class Tee(io.TextIOBase):
@@ -64,8 +63,8 @@ class Tee(io.TextIOBase):
 
 
 def utc_log_name(is_dry: bool) -> str:
-    """Generate UTC timestamp-based log filename."""
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    """Generate local timestamp-based log filename."""
+    ts = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     return f"Log {ts}{' dry-run' if is_dry else ''}.txt"
 
 
