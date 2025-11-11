@@ -75,9 +75,31 @@ def run_ml_pipeline(cfg, xlsx_path: str):
     df.loc[mask_unlabeled, "Classification"] = preds_class
     df.loc[mask_unlabeled, "Type"] = preds_type
 
-    # Save results to same workbook (timestamped copy)
-    with pd.ExcelWriter(xlsx_path, mode="a", if_sheet_exists="replace", engine="openpyxl") as writer:
-        df.to_excel(writer, sheet_name="Details", index=False)
+    # Save results preserving formatting
+    from openpyxl import load_workbook
+    wb = load_workbook(xlsx_path)
+    ws = wb["Details"]
+    
+    # Find column indices
+    col_class = col_type = None
+    for c in range(1, ws.max_column + 1):
+        header = ws.cell(row=1, column=c).value
+        if header == "Classification":
+            col_class = c
+        elif header == "Type":
+            col_type = c
+    
+    # Update only the prediction cells
+    unlabeled_indices = df_unlabeled.index
+    for i, (pred_class, pred_type) in enumerate(zip(preds_class, preds_type)):
+        row_idx = unlabeled_indices[i] + 2  # +2 for 1-based indexing and header
+        if col_class:
+            ws.cell(row=row_idx, column=col_class).value = pred_class
+        if col_type:
+            ws.cell(row=row_idx, column=col_type).value = pred_type
+    
+    wb.save(xlsx_path)
+    wb.close()
 
     print(f"✅ ML predictions written to '{Path(xlsx_path).name}'.")
     print(f"   Classification filled by ML: {len(preds_class)} rows")
