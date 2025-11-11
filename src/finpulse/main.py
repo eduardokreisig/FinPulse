@@ -8,7 +8,7 @@ from .core.runner import run_application
 def main() -> None:
     """Main entry point."""
     ap = argparse.ArgumentParser(
-        description="FinPulse v5.3.17 (robust CSV defaults; no YAML change needed)"
+        description="FinPulse (robust CSV defaults; no YAML change needed)"
     )
     
     # Add subcommands for ML
