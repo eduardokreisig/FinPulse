@@ -59,26 +59,25 @@ def print_summary(sources_processed: int, sources_with_data: int, total_accounts
                  total_details: int, source_names: list, existing_counts: list, 
                  total_preexisting: int, total_deduped: int, total_nat: int):
     """Print processing summary."""
-    print(f"\nSummary: {sources_processed} sources processed, {sources_with_data} had data")
+    print(f"\nSummary: {sources_processed} sources processed, {sources_with_data} had data that wasn't already present")
     print(f"per-account added={total_accounts}, details added={total_details}")
     existing_breakdown = dict(zip(source_names, existing_counts))
     print(f"Pre-existing by account: {existing_breakdown}")
     print(f"Pre-existing rows={total_preexisting}, Deduped rows={total_deduped}, NaT (Not a Time) total={total_nat}")
 
 
-def run_ml_inference_if_requested(cfg: dict, xlsx_path: str, has_new_data: bool):
-    """Run ML inference if user confirms and there's new data."""
-    if not has_new_data:
+def run_ml_inference_if_requested(cfg: dict, xlsx_path: str, should_run_ml: bool):
+    """Run ML inference if requested by user."""
+    if not should_run_ml:
         return
     
-    if get_yes_no("Run and ingest Machine Learning predictions for Classification and Type columns?", False):
-        try:
-            from ..ml.pipeline import run_ml_pipeline
-            run_ml_pipeline(cfg, str(xlsx_path))
-        except ImportError:
-            print("⚠️ ML module not available. Skipping ML inference.")
-        except Exception as e:
-            print(f"⚠️ ML inference failed: {e}")
+    try:
+        from ..ml.pipeline import run_ml_pipeline
+        run_ml_pipeline(cfg, str(xlsx_path))
+    except ImportError:
+        print("⚠️ ML module not available. Skipping ML inference.")
+    except Exception as e:
+        print(f"⚠️ ML inference failed: {e}")
 
 
 def create_working_copy(original_xlsx: Path) -> Path:
@@ -106,7 +105,7 @@ def check_discrepancies(total_accounts: int, total_details: int, source_results:
 
 
 def run_processing(cfg: dict, args, xlsx: Path, details_sheet: str):
-    """Run the main processing loop."""
+    """Run the main processing loop with cumulative key building."""
     total_details = 0
     total_accounts = 0
     total_preexisting = 0
@@ -116,11 +115,23 @@ def run_processing(cfg: dict, args, xlsx: Path, details_sheet: str):
     sources_with_data = 0
     source_results = []
     existing_counts = []
+    
+    # Initialize cumulative deduplication keys
+    cumulative_keys = {'details': set(), 'accounts': {}}
 
     for src_name, scfg in cfg["sources"].items():
         sources_processed += 1
-        acct_added, det_added, nat_count, deduped_count, existing_records = process_source(
-            src_name, scfg, xlsx, details_sheet, args)
+        acct_added, det_added, nat_count, deduped_count, existing_records, new_keys = process_source(
+            src_name, scfg, xlsx, details_sheet, args, cumulative_keys)
+        
+        # Update cumulative keys with newly added records
+        if new_keys:
+            cumulative_keys['details'].update(new_keys.get('details', set()))
+            for account_sheet, keys in new_keys.get('accounts', {}).items():
+                if account_sheet not in cumulative_keys['accounts']:
+                    cumulative_keys['accounts'][account_sheet] = set()
+                cumulative_keys['accounts'][account_sheet].update(keys)
+        
         total_accounts += acct_added
         total_details += det_added
         total_nat += nat_count
@@ -203,6 +214,9 @@ def run_application(args):
             else:
                 xlsx = original_xlsx  # Use original for dry runs
 
+        # Pass log directory to args for use in processing
+        args.log_dir_path = log_dir
+        
         try:
             results = run_processing(cfg, args, xlsx, details_sheet)
         except Exception as e:
@@ -210,8 +224,8 @@ def run_application(args):
             return
         
         # Run ML inference after successful processing (non-dry-run only)
-        if not args.dry_run:
-            run_ml_inference_if_requested(cfg, str(xlsx), results[0] > 0 or results[1] > 0)
+        if not args.dry_run and interactive_config:
+            run_ml_inference_if_requested(cfg, str(xlsx), interactive_config.get('ml_inference', False))
         
         if args.dry_run:
             print("(dry-run) No changes written.")
@@ -237,7 +251,8 @@ def run_application(args):
                     check_discrepancies(final_accounts, final_details, final_source_results)
                     
                     # Run ML inference after successful real import
-                    run_ml_inference_if_requested(cfg, str(xlsx), final_accounts > 0 or final_details > 0)
+                    if interactive_config:
+                        run_ml_inference_if_requested(cfg, str(xlsx), interactive_config.get('ml_inference', False))
                     
                     print("Done.")
         else:

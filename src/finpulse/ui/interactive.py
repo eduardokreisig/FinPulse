@@ -30,6 +30,9 @@ def get_yes_no(prompt: str, default: bool = False) -> bool:
 def get_interactive_config():
     """Get configuration interactively from user."""
     print("\n=== FinPulse Interactive Setup ===")
+    
+    # Get current year for defaults
+    current_year = datetime.now().year
 
     # Get config file
     config_file = get_user_input("Config file path", "config/config.yaml")
@@ -44,7 +47,7 @@ def get_interactive_config():
     workspace_path = Path(workspace).resolve()
 
     # Get workbook name
-    workbook_name = get_user_input("Finance workbook filename", "FinanceWorkbook 2025.xlsx")
+    workbook_name = get_user_input("Finance workbook filename", f"FinanceWorkbook {current_year}.xlsx")
 
     # Get inputs folder
     default_inputs = str(workspace_path / "Inputs")
@@ -55,12 +58,14 @@ def get_interactive_config():
     logs_folder = get_user_input("Logs folder", default_logs)
 
     # Get date range with current year defaults
-    current_year = datetime.now().year
     default_start = f"{current_year}-01-01"
     default_end = f"{current_year}-12-31"
 
     start_date = get_user_input("Start date (YYYY-MM-DD)", default_start)
     end_date = get_user_input("End date (YYYY-MM-DD)", default_end)
+    
+    # ML inference preference
+    ml_inference = get_yes_no("Apply ML predictions to fill missing Classification and Type values?\nYes (default) / No", True)
 
     return {
         'config': config_file,
@@ -69,5 +74,6 @@ def get_interactive_config():
         'inputs': inputs_folder,
         'logs': logs_folder,
         'start': start_date if start_date else None,
-        'end': end_date if end_date else None
+        'end': end_date if end_date else None,
+        'ml_inference': ml_inference
     }

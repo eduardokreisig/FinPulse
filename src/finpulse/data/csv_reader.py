@@ -75,3 +75,25 @@ def load_inputs_for_source(src_cfg: dict) -> pd.DataFrame:
     except (ValueError, pd.errors.InvalidIndexError) as e:
         logging.error(f"Failed to concatenate dataframes: {e}")
         raise
+
+
+def load_inputs_by_file(src_cfg: dict) -> List[pd.DataFrame]:
+    """Load input files separately for individual processing."""
+    files = []
+    for pattern in src_cfg.get("files", []):
+        files.extend(collect_files_case_insensitive(pattern))
+    
+    print(f"  matched {len(files)} file(s)")
+    for p in files:
+        print(f"    - {p}")
+    
+    frames = []
+    for p in files:
+        ext = p.suffix.lower()
+        if ext in [".csv", ".txt"]:
+            df = read_csv_robust(p, src_cfg)
+            df["__source_file"] = str(p)
+            if not df.empty:
+                frames.append(df)
+    
+    return frames

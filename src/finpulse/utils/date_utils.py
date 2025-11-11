@@ -36,7 +36,7 @@ def robust_parse_dates(series: pd.Series, date_format: Optional[str]) -> pd.Seri
         try:
             # Smart year truncation: convert 4-digit years to 2-digit for %y format
             if "%y" in date_format and "%Y" not in date_format:
-                s = s.str.replace(r"/(\d{4})$", r"/\1", regex=True).str.replace(r"/(\d{2})(\d{2})$", r"/\2", regex=True)
+                s = s.str.replace(r"/(\d{2})(\d{2})$", r"/\2", regex=True)
             return pd.to_datetime(s, errors="coerce", format=date_format)
         except (ValueError, TypeError) as e:
             logging.warning(f"Failed to parse dates with format {date_format}: {e}")

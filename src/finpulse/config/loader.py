@@ -32,5 +32,10 @@ def get_target_workbook_path(cfg: Dict[str, Any]) -> Path:
 def get_log_directory(cfg: Dict[str, Any], log_dir_arg: str = None) -> Path:
     """Get and validate log directory path."""
     if log_dir_arg or cfg.get("log_dir"):
-        return validate_path(Path(log_dir_arg or cfg.get("log_dir", "")).expanduser())
+        try:
+            return validate_path(Path(log_dir_arg or cfg.get("log_dir", "")).expanduser())
+        except (ValueError, OSError) as e:
+            # If path validation fails, try to create a simple Path without validation
+            logging.warning(f"Path validation failed, using simple path: {e}")
+            return Path(log_dir_arg or cfg.get("log_dir", "")).expanduser().resolve()
     return None

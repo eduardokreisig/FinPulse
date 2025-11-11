@@ -97,8 +97,15 @@ def calculate_amount_from_withdrawals_deposits(w_amt: float, d_amt: float) -> fl
 
 
 def build_dedup_key(bank: str, account: str, date, description: str, amount: float) -> tuple:
-    """Build standardized deduplication key."""
-    return (str(bank), str(account), date, norm_key(description), round(float(amount), 2))
+    """Build standardized deduplication key with consistent date format."""
+    date_str = to_iso_dateish(date)
+    return (str(bank), str(account), date_str, norm_key(description), round(float(amount), 2))
+
+
+def build_key_from_row_data(bank_label: str, account_label: str, row_data: dict) -> tuple:
+    """Centralized function to build dedup key from normalized row data."""
+    dkey = row_data["date"].date() if hasattr(row_data["date"], "date") else row_data["date"]
+    return build_dedup_key(bank_label, account_label, dkey, row_data["description"], row_data["amount"])
 
 
 def norm_key(s: Optional[str]) -> str:
@@ -138,10 +145,11 @@ def fix_shifted_formulas(ws, col_acc_period: int) -> None:
 
 
 def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str, 
-                       account_label: str, rows: List[Dict[str, Any]], dry: bool = False) -> tuple[int, int]:
+                       account_label: str, rows: List[Dict[str, Any]], dry: bool = False,
+                       cumulative_keys: dict = None, log_dir: Path = None) -> tuple[int, int, set]:
     """Insert rows into the Details sheet."""
     if not rows:
-        return 0
+        return 0, 0, set()
     
     wb, validated_xlsx = load_workbook_safe(xlsx_path)
     
@@ -164,39 +172,78 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
     col_notes = h.get("Notes")
     col_type_manual = h.get("Type")
 
+    # Initialize debug log
+    debug_log = []
+    debug_log.append(f"=== DETAILS SHEET DEBUG: {bank_label} {account_label} ===")
+    
+    # Always build from existing Excel data, then merge with cumulative keys
     existing_keys = set()
+    
+    # Add cumulative keys if provided
+    if cumulative_keys and 'details' in cumulative_keys and cumulative_keys['details']:
+        existing_keys.update(cumulative_keys['details'])
+        debug_log.append(f"Added {len(cumulative_keys['details'])} cumulative keys")
+    
+    # Always also check existing Excel data for current account
     for row_idx in range(2, ws.max_row + 1):
-        b = (ws.cell(row=row_idx, column=col_bank).value or "")
-        a = (ws.cell(row=row_idx, column=col_account).value or "")
-        d = ws.cell(row=row_idx, column=col_date).value
-        
-        # Skip empty rows
-        if not any([b, a, d]):
-            continue
+            b = (ws.cell(row=row_idx, column=col_bank).value or "")
+            a = (ws.cell(row=row_idx, column=col_account).value or "")
+            d = ws.cell(row=row_idx, column=col_date).value
+            desc = ws.cell(row=row_idx, column=col_desc).value
             
-        if hasattr(d, "date"):
-            d = d.date()
-        desc = norm_key(ws.cell(row=row_idx, column=col_desc).value)
-        # Get amount for deduplication key
-        w_amt = ws.cell(row=row_idx, column=col_w).value or 0.0
-        d_amt = ws.cell(row=row_idx, column=col_d).value or 0.0
-        amt = calculate_amount_from_withdrawals_deposits(w_amt, d_amt)
-        existing_keys.add(build_dedup_key(b, a, d, desc, amt))
+            # Skip empty rows - check if Bank and Account have data (minimum required)
+            if not b and not a:
+                continue
+            
+            # Only include existing keys for the current bank/account being processed
+            if str(b) != bank_label or str(a) != account_label:
+                debug_log.append(f"Skipping row {row_idx}: Bank='{b}' vs '{bank_label}', Account='{a}' vs '{account_label}'")
+                continue
+            else:
+                debug_log.append(f"Including row {row_idx}: Bank='{b}', Account='{a}'")
+                
+            if hasattr(d, "date"):
+                d = d.date()
+            # Get amount for deduplication key
+            w_amt = ws.cell(row=row_idx, column=col_w).value or 0.0
+            d_amt = ws.cell(row=row_idx, column=col_d).value or 0.0
+            amt = calculate_amount_from_withdrawals_deposits(w_amt, d_amt)
+            key = build_dedup_key(b, a, d, desc, amt)
+            existing_keys.add(key)
+            debug_log.append(f"Added existing key: {key}")
 
     rows_sorted = sorted(rows, key=lambda r: (bank_label, account_label, r["date"]))
     added = 0
+    new_keys = set()
+    
+    debug_log.append(f"Existing keys count: {len(existing_keys)}")
+    debug_log.append(f"Sample existing keys: {list(existing_keys)[:3]}")
+    debug_log.append(f"Looking for Bank='{bank_label}', Account='{account_label}'")
+    
+    # Debug: Show what Bank/Account values actually exist
+    found_accounts = set()
+    for row_idx in range(2, min(ws.max_row + 1, 20)):  # Check first 20 rows
+        b = ws.cell(row=row_idx, column=col_bank).value
+        a = ws.cell(row=row_idx, column=col_account).value
+        if b or a:
+            found_accounts.add((repr(b), repr(a)))
+    debug_log.append(f"Found Bank/Account pairs: {list(found_accounts)[:10]}")
+    
+    debug_log.append(f"Sample existing keys: {list(existing_keys)[:3]}")
     
     for row_data in rows_sorted:
-        dkey = row_data["date"].date() if hasattr(row_data["date"], "date") else row_data["date"]
-        amt = float(row_data["amount"] or 0.0)
-        key = build_dedup_key(bank_label, account_label, dkey, row_data["description"], amt)
+        key = build_key_from_row_data(bank_label, account_label, row_data)
+        debug_log.append(f"New key: {key}")
         if key in existing_keys:
+            debug_log.append(f"  -> DUPLICATE (skipping)")
             continue
+        debug_log.append(f"  -> NEW (adding)")
 
         if dry:
             added += 1
             continue
 
+        dkey = row_data["date"].date() if hasattr(row_data["date"], "date") else row_data["date"]
         ins_at = find_insert_index(ws, (bank_label, account_label, dkey), h["Bank"], h["Account"], h["Date"])
         ws.insert_rows(ins_at, 1)
         src_row = ins_at - 1 if ins_at > 2 else ins_at + 1
@@ -231,26 +278,40 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         safe_set_cell(ws, ins_at, col_type_manual, None)
 
         added += 1
+        new_keys.add(key)
         
         # Skip formula updates in existing rows to prevent corruption
         # Excel will automatically adjust most formulas when rows are inserted
 
     # Fix any formulas that were incorrectly shifted by Excel
+    # Write debug log
+    debug_log.append(f"Final: added={added}, existing_keys={len(existing_keys)}")
+    try:
+        if log_dir:
+            debug_dir = log_dir / "Debug"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            debug_path = debug_dir / f"details_debug_{bank_label.replace(' ', '_')}_{account_label.replace(' ', '_')}.log"
+            with open(debug_path, "w") as f:
+                f.write("\n".join(debug_log))
+            print(f"Debug log: {debug_path}")
+    except Exception as e:
+        print(f"Failed to write debug log: {e}")
+    
     if not dry and added > 0:
         fix_shifted_formulas(ws, col_acc_period)
         save_workbook_safe(wb, validated_xlsx)
     elif not dry:
         save_workbook_safe(wb, validated_xlsx)
-    return added, len(existing_keys)
+    return added, len(existing_keys), new_keys
 
 
 def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str, account_label: str,
                              rows: List[Dict[str, Any]], raw_map: Optional[Dict[str, str]], 
                              source_config: Optional[Dict[str, Any]] = None, dry: bool = False, 
-                             start_date=None, end_date=None) -> tuple[int, int]:
+                             start_date=None, end_date=None, cumulative_keys: dict = None, log_dir: Path = None) -> tuple[int, int, set]:
     """Insert rows into account-specific sheet."""
     if not rows:
-        return 0, 0
+        return 0, 0, set()
     
     wb, validated_xlsx = load_workbook_safe(xlsx_path)
     
@@ -305,26 +366,45 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
     
     logging.info(f"Account sheet dedup columns for {bank_label} {account_label}: {chosen}")
 
-    def existing_key(row_idx: int):
-        key_parts = []
+    def get_existing_key_from_row(row_idx: int):
+        # Use Bank/Account from main columns for consistency
+        bank_val = ws.cell(row=row_idx, column=col_bank).value if col_bank else bank_label
+        account_val = ws.cell(row=row_idx, column=col_account).value if col_account else account_label
+        
+        date_val = None
+        desc_val = None
+        amt_val = 0.0
+        
         for n in chosen or []:
             cell_val = ws.cell(row=row_idx, column=raw_cols_indices[n]).value
             if DATE_SEARCH_PATTERN.search(n):
-                key_parts.append(to_iso_dateish(cell_val))
+                date_val = cell_val
+            elif n == "Description":
+                desc_val = cell_val
             elif n == "Amount":
-                key_parts.append(str(float(cell_val or 0)))
+                amt_val = float(cell_val or 0)
             elif n in ["Debit", "Credit"]:
-                key_parts.append(str(float(cell_val or 0)))
-            else:
-                key_parts.append(norm_key(cell_val))
-        return tuple(key_parts)
+                if n == "Debit":
+                    amt_val = float(cell_val or 0)
+                elif n == "Credit" and amt_val == 0:
+                    amt_val = float(cell_val or 0)
+        
+        if hasattr(date_val, "date"):
+            date_val = date_val.date()
+        
+        return build_dedup_key(str(bank_val or bank_label), str(account_val or account_label), date_val, desc_val, amt_val)
 
-    existing = set()
-    existing_in_range = 0
-    if chosen:
-        for row_index in range(2, ws.max_row + 1):
-            key = existing_key(row_index)
-            existing.add(key)
+    # Use cumulative keys if provided, otherwise build from existing data
+    if cumulative_keys and 'accounts' in cumulative_keys and sheet_name in cumulative_keys['accounts']:
+        existing = cumulative_keys['accounts'][sheet_name].copy()
+        existing_in_range = len(existing)  # Approximate count
+    else:
+        existing = set()
+        existing_in_range = 0
+        if chosen:
+            for row_index in range(2, ws.max_row + 1):
+                key = get_existing_key_from_row(row_index)
+                existing.add(key)
             
             # Count existing records in date range
             if start_date or end_date:
@@ -335,22 +415,23 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
                         break
                 
                 if date_col_name:
-                    date_val = ws.cell(row=row_index, column=raw_cols_indices[date_col_name]).value
-                    try:
-                        row_date = pd.to_datetime(date_val)
-                        if start_date and row_date < pd.to_datetime(start_date):
-                            continue
-                        if end_date and row_date > pd.to_datetime(end_date):
-                            continue
-                        existing_in_range += 1
-                    except (ValueError, TypeError):
-                        pass
+                    for row_index in range(2, ws.max_row + 1):
+                        date_val = ws.cell(row=row_index, column=raw_cols_indices[date_col_name]).value
+                        try:
+                            row_date = pd.to_datetime(date_val)
+                            if start_date and row_date < pd.to_datetime(start_date):
+                                continue
+                            if end_date and row_date > pd.to_datetime(end_date):
+                                continue
+                            existing_in_range += 1
+                        except (ValueError, TypeError):
+                            pass
             else:
-                existing_in_range += 1
+                existing_in_range = len(existing)
                 
-        logging.info(f"Found {len(existing)} existing records for dedup in {bank_label} {account_label}")
-    else:
-        logging.warning(f"No dedup columns found for {bank_label} {account_label}")
+            logging.info(f"Found {len(existing)} existing records for dedup in {bank_label} {account_label}")
+        else:
+            logging.warning(f"No dedup columns found for {bank_label} {account_label}")
 
     # Find actual last row with data
     last_data_row = 1
@@ -374,34 +455,21 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             formula_source_row = r_idx
             break
 
+    debug_log = []
+    debug_log.append(f"=== ACCOUNT SHEET DEBUG: {bank_label} {account_label} ===")
+    debug_log.append(f"Existing keys count: {len(existing)}")
+    debug_log.append(f"Sample existing keys: {list(existing)[:3]}")
+    
     added = 0
+    new_keys = set()
     for row_data in rows:
-        key = None
-        if chosen:
-            row_key_parts = []
-            for n in chosen:
-                if DATE_SEARCH_PATTERN.search(n):
-                    row_key_parts.append(pd.to_datetime(row_data["date"]).strftime("%Y-%m-%d"))
-                elif n == "Amount":
-                    row_key_parts.append(str(float(row_data["amount"])))
-                elif n in ["Debit", "Credit"]:
-                    # For Debit/Credit, use the normalized amount
-                    if n == "Debit" and row_data["amount"] < 0:
-                        row_key_parts.append(str(float(row_data["amount"])))
-                    elif n == "Credit" and row_data["amount"] >= 0:
-                        row_key_parts.append(str(float(row_data["amount"])))
-                    else:
-                        row_key_parts.append("0.0")
-                elif n == "Description":
-                    row_key_parts.append(norm_key(row_data["description"]))
-                else:
-                    # For other columns, get from raw data
-                    raw_val = row_data.get("__raw__", {}).get(n, "")
-                    row_key_parts.append(norm_key(raw_val))
-            key = tuple(row_key_parts)
-        if key and key in existing:
+        key = build_key_from_row_data(bank_label, account_label, row_data)
+        debug_log.append(f"New key: {key}")
+        if key in existing:
+            debug_log.append(f"  -> DUPLICATE (skipping)")
             logging.debug(f"Skipping duplicate: {key}")
             continue
+        debug_log.append(f"  -> NEW (adding)")
 
         if dry:
             added += 1
@@ -433,7 +501,21 @@ def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str,
             safe_set_cell(ws, ins_at, ci, cell_value)
 
         added += 1
+        new_keys.add(key)
 
+    # Write debug log
+    debug_log.append(f"Final: added={added}, existing_in_range={existing_in_range}")
+    try:
+        if log_dir:
+            debug_dir = log_dir / "Debug"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            debug_path = debug_dir / f"account_debug_{bank_label.replace(' ', '_')}_{account_label.replace(' ', '_')}.log"
+            with open(debug_path, "w") as f:
+                f.write("\n".join(debug_log))
+            print(f"Debug log: {debug_path}")
+    except Exception as e:
+        print(f"Failed to write debug log: {e}")
+    
     if not dry:
         save_workbook_safe(wb, validated_xlsx)
-    return added, existing_in_range
+    return added, existing_in_range, new_keys
