@@ -56,11 +56,9 @@ def main() -> None:
         try:
             if args.ml_command == 'train':
                 from .ml.train import train_models
-                from .ui.interactive import get_user_input, get_yes_no
+                from .ui.interactive import get_ml_training_config
                 
-                notes = get_user_input("Training notes (optional)", "")
-                bump_type = get_user_input("Version bump type", "minor")
-                
+                notes, bump_type = get_ml_training_config()
                 train_models(args.config, args.input, bump_type, notes)
                 return
                 

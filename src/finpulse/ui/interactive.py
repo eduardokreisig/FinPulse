@@ -77,3 +77,10 @@ def get_interactive_config():
         'end': end_date if end_date else None,
         'ml_inference': ml_inference
     }
+
+
+def get_ml_training_config():
+    """Get ML training configuration interactively from user."""
+    notes = get_user_input("Training notes (optional)", "")
+    bump_type = get_user_input("Version bump type (major/minor/patch)", "minor")
+    return notes, bump_type
