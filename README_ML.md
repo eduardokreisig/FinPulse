@@ -9,8 +9,9 @@ It uses small supervised models trained on rows that already contain labels.
 ## Key Features
 - **CategoryModel:** Random Forest → predicts *Category*
 - **SubCategoryModel:** Multinomial Logistic Regression → predicts *Subcategory*
+- **Configurable features:** Define which columns each model uses via `config.yaml`
 - **TF-IDF** text encoder (default), future support for **Sentence-BERT**
-- Config-driven algorithms (`config.yaml`)
+- Config-driven algorithms and features
 - Model versioning + metadata tracking
 - Safe inference (writes to timestamped copy only)
 - Configurable rare-label grouping threshold (`rare_label_threshold`)
@@ -25,7 +26,7 @@ src/finpulse/ml/
 ├── text_encoder.py         # TF-IDF / S-BERT vectorization
 ├── model_category.py       # CategoryModel (Category)
 ├── model_subcategory.py    # SubCategoryModel (Subcategory)
-├── model_type.py           # Model B (Type)
+
 ├── train.py                # K-fold training & metadata
 ├── pipeline.py             # Inference on Excel workbook
 ├── utils_model.py          # Versioning, metrics, saving
@@ -68,7 +69,8 @@ finpulse ml infer --input "FinanceWorkbook 2025.xlsx"
 - Each training generates new .joblib files:
     - `category_vX.joblib`
     - `subcategory_vX.joblib`
-    - `text_encoder_vX.joblib`
+    - `category_encoder_vX.joblib`
+    - `subcategory_encoder_vX.joblib`
 - `metadata.yaml` tracks active version.
 - Old metadata is archived under `/history/`.
 - To rollback: delete the undesired model files and revert `metadata.yaml` to a prior version.
@@ -80,10 +82,25 @@ ml:
     text_encoder: tfidf           # or "sbert"
     category_model:
         algorithm: random_forest
+        features:
+          - "Transaction Description"
+          - "Transaction Type"
     subcategory_model:
         algorithm: logistic_regression
+        features:
+          - "Transaction Description"
+          - "Automated Trans. Category"
+          - "Transaction Type"
     rare_label_threshold: 10
 ```
+
+### Configuring Features
+
+Each model can use different feature combinations:
+- **CategoryModel**: Uses `Transaction Description` + `Transaction Type` (excludes automated category to avoid overfitting)
+- **SubCategoryModel**: Uses all three text columns for maximum context
+- **Custom features**: Add any Excel column name to the `features` list
+- **Missing columns**: Automatically handled with warnings during training
 
 ### Logging
 
@@ -91,7 +108,6 @@ During inference:
 ```
 Category filled by ML: X rows
 Subcategory filled by ML: Y rows
-Type filled by ML: Y rows
 ```
 Logs are also appended to the standard FinPulse log file.
 
@@ -116,3 +132,6 @@ A: No. ML predictions are skipped when `--dry_run` is enabled.
 
 **Q: What about S-BERT performance?**  
 A: You can switch to it anytime in `config.yaml`. Training time increases but accuracy may improve by 3–8 pp.
+
+**Q: Can I customize which features each model uses?**  
+A: Yes! Edit the `features` list under each model in `config.yaml`. Models will automatically use different TF-IDF encoders trained on their specific feature sets.

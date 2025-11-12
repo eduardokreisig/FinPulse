@@ -19,6 +19,7 @@ def run_ml_pipeline(cfg, xlsx_path: str):
     """Executes ML inference on timestamped workbook."""
     print("\n🔍 Starting FinPulse ML inference pipeline...")
 
+    ml_cfg = cfg.get("ml", {})
     models_dir = Path(__file__).parent / "models"
     metadata_path = models_dir / "metadata.yaml"
 
@@ -33,7 +34,8 @@ def run_ml_pipeline(cfg, xlsx_path: str):
 
     # Check all required model files exist
     required_files = [
-        models_dir / f"text_encoder_v{version}.joblib",
+        models_dir / f"category_encoder_v{version}.joblib",
+        models_dir / f"subcategory_encoder_v{version}.joblib",
         models_dir / f"category_v{version}.joblib",
         models_dir / f"subcategory_v{version}.joblib",
     ]
@@ -42,8 +44,9 @@ def run_ml_pipeline(cfg, xlsx_path: str):
         print(f"⚠️ Missing model files: {', '.join(missing)}. Re-train using 'finpulse ml train'.")
         return
 
-    # Load models and encoder
-    encoder = joblib.load(models_dir / f"text_encoder_v{version}.joblib")
+    # Load models and encoders
+    category_encoder = joblib.load(models_dir / f"category_encoder_v{version}.joblib")
+    subcategory_encoder = joblib.load(models_dir / f"subcategory_encoder_v{version}.joblib")
     category_model = joblib.load(models_dir / f"category_v{version}.joblib")
     subcategory_model = joblib.load(models_dir / f"subcategory_v{version}.joblib")
 
@@ -59,18 +62,30 @@ def run_ml_pipeline(cfg, xlsx_path: str):
         print("✅ No unlabeled transactions found. Nothing to predict.")
         return
 
-    # Combine text features
-    X_unlabeled_text = (
-        df_unlabeled["Transaction Description"].astype(str).fillna("") + " " +
-        df_unlabeled["Automated Trans. Category"].astype(str).fillna("") + " " +
-        df_unlabeled["Transaction Type"].astype(str).fillna("")
-    ).str.lower()
+    # Get feature configurations
+    category_features = ml_cfg.get("category_model", {}).get("features", ["Transaction Description", "Transaction Type"])
+    subcategory_features = ml_cfg.get("subcategory_model", {}).get("features", ["Transaction Description", "Automated Trans. Category", "Transaction Type"])
+    
+    def build_text_features(df, feature_columns):
+        """Build concatenated text features from specified columns."""
+        if not feature_columns:
+            return pd.Series([""] * len(df))
+        
+        text_series = df[feature_columns[0]].astype(str).fillna("")
+        for col in feature_columns[1:]:
+            if col in df.columns:
+                text_series = text_series + " " + df[col].astype(str).fillna("")
+        return text_series.str.lower()
+    
+    X_category_text = build_text_features(df_unlabeled, category_features)
+    X_subcategory_text = build_text_features(df_unlabeled, subcategory_features)
 
-    X_unlabeled = encoder.transform(X_unlabeled_text)
+    X_category = category_encoder.transform(X_category_text)
+    X_subcategory = subcategory_encoder.transform(X_subcategory_text)
 
     # Predict categories and subcategories
-    preds_category = category_model.predict(X_unlabeled)
-    preds_subcategory = subcategory_model.predict(X_unlabeled)
+    preds_category = category_model.predict(X_category)
+    preds_subcategory = subcategory_model.predict(X_subcategory)
 
     df.loc[mask_unlabeled, "Category"] = preds_category
     df.loc[mask_unlabeled, "Subcategory"] = preds_subcategory

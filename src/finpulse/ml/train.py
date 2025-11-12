@@ -12,6 +12,7 @@ Workflow:
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 import yaml
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import KFold
@@ -89,19 +90,45 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
     except Exception as e:
         raise RuntimeError(f"Failed to load training data: {e}")
 
-    # Combine columns for text input
-    text_features = (
-            labeled_df["Transaction Description"]
-            + " "
-            + labeled_df["Automated Trans. Category"].fillna("")
-            + " "
-            + labeled_df["Transaction Type"].fillna("")
-    )
+    # Create feature sets based on config
+    category_features = ml_cfg.get("category_model", {}).get("features", ["Transaction Description", "Transaction Type"])
+    subcategory_features = ml_cfg.get("subcategory_model", {}).get("features", ["Transaction Description", "Automated Trans. Category", "Transaction Type"])
+    
+    def build_text_features(df, feature_columns):
+        """Build concatenated text features from specified columns."""
+        if not feature_columns:
+            return pd.Series([""] * len(df))
+        
+        # Start with first column
+        first_col = None
+        for col in feature_columns:
+            if col in df.columns:
+                first_col = col
+                break
+            else:
+                print(f"Warning: Feature column '{col}' not found in data")
+        
+        if not first_col:
+            return pd.Series([""] * len(df))
+            
+        text_series = df[first_col].fillna("")
+        for col in feature_columns:
+            if col != first_col and col in df.columns:
+                text_series = text_series + " " + df[col].fillna("")
+        return text_series
+    
+    category_text_features = build_text_features(labeled_df, category_features)
+    subcategory_text_features = build_text_features(labeled_df, subcategory_features)
 
     try:
-        encoder = TextEncoder(method=encoder_type)
-        encoder.fit(text_features)
-        X = encoder.transform(text_features)
+        category_encoder = TextEncoder(method=encoder_type)
+        subcategory_encoder = TextEncoder(method=encoder_type)
+        
+        category_encoder.fit(category_text_features)
+        subcategory_encoder.fit(subcategory_text_features)
+        
+        X_category = category_encoder.transform(category_text_features)
+        X_subcategory = subcategory_encoder.transform(subcategory_text_features)
     except Exception as e:
         raise RuntimeError(f"Text encoding failed: {e}")
 
@@ -116,8 +143,8 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
 
         # K-fold evaluation
         print("\nPerforming 5-fold cross-validation...")
-        acc_category, f1_category = evaluate_model_kfold(category_model, X, y_category)
-        acc_subcategory, f1_subcategory = evaluate_model_kfold(subcategory_model, X, y_subcategory)
+        acc_category, f1_category = evaluate_model_kfold(category_model, X_category, y_category)
+        acc_subcategory, f1_subcategory = evaluate_model_kfold(subcategory_model, X_subcategory, y_subcategory)
     except Exception as e:
         raise RuntimeError(f"Model training/evaluation failed: {e}")
 
@@ -125,8 +152,8 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
     try:
         final_category_model = CategoryModel()  # Fresh instance for final training
         final_subcategory_model = SubCategoryModel()  # Fresh instance for final training
-        final_category_model.train(X, y_category)
-        final_subcategory_model.train(X, y_subcategory)
+        final_category_model.train(X_category, y_category)
+        final_subcategory_model.train(X_subcategory, y_subcategory)
     except Exception as e:
         raise RuntimeError(f"Final model training failed: {e}")
 
@@ -150,16 +177,18 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
         if safe_version != version_str:
             raise ValueError(f"Invalid version string: {version_str}")
             
-        encoder_file = models_dir / f"text_encoder_v{safe_version}.joblib"
+        category_encoder_file = models_dir / f"category_encoder_v{safe_version}.joblib"
+        subcategory_encoder_file = models_dir / f"subcategory_encoder_v{safe_version}.joblib"
         category_model_file = models_dir / f"category_v{safe_version}.joblib"
         subcategory_model_file = models_dir / f"subcategory_v{safe_version}.joblib"
         
         # Ensure files are within models directory
-        for file_path in [encoder_file, category_model_file, subcategory_model_file]:
+        for file_path in [category_encoder_file, subcategory_encoder_file, category_model_file, subcategory_model_file]:
             if not str(file_path.resolve()).startswith(str(models_dir.resolve())):
                 raise ValueError(f"Invalid file path: {file_path}")
         
-        encoder.save(str(encoder_file))
+        category_encoder.save(str(category_encoder_file))
+        subcategory_encoder.save(str(subcategory_encoder_file))
         final_category_model.save(str(category_model_file))
         final_subcategory_model.save(str(subcategory_model_file))
     except Exception as e:

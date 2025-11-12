@@ -106,6 +106,13 @@ ml:
   text_encoder: tfidf           # or "sbert"
   category_model:
     algorithm: random_forest
+    features:
+      - "Transaction Description"
+      - "Transaction Type"
   subcategory_model:
     algorithm: logistic_regression
+    features:
+      - "Transaction Description"
+      - "Automated Trans. Category"
+      - "Transaction Type"
   rare_label_threshold: 10
