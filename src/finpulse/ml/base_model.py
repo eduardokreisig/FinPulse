@@ -4,19 +4,20 @@ Base model class with common functionality for ML models.
 
 import joblib
 import os
-from abc import ABC, abstractmethod
+from .model_factory import ModelFactory
 
 
-class BaseModel(ABC):
+class BaseModel:
     """Base class for ML models with common save/load functionality."""
     
-    def __init__(self):
+    def __init__(self, algorithm: str, hyperparameters: dict = None):
+        self.algorithm = algorithm
+        self.hyperparameters = hyperparameters or {}
         self.model = None
     
-    @abstractmethod
     def _create_model(self):
-        """Create the specific model instance. Must be implemented by subclasses."""
-        pass
+        """Create model instance using factory."""
+        return ModelFactory.create_model(self.algorithm, self.hyperparameters)
     
     def train(self, X, y):
         """Train the model."""

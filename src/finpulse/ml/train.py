@@ -17,11 +17,11 @@ import yaml
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import KFold
 
-from .model_category import CategoryModel
-from .model_subcategory import SubCategoryModel
+from .base_model import BaseModel
 from .preprocess import load_and_prepare_details
 from .text_encoder import TextEncoder
 from .utils_model import bump_model_version, save_metadata
+from .config_validator import MLConfigValidator
 
 
 def evaluate_model_kfold(model, X, y, k=5):
@@ -79,6 +79,14 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
         raise IOError(f"Failed to read config file: {e}")
 
     ml_cfg = cfg.get("ml", {})
+    
+    # Validate ML configuration
+    try:
+        MLConfigValidator.validate_ml_config(ml_cfg)
+        print("✅ ML configuration validated successfully")
+    except Exception as e:
+        raise ValueError(f"ML configuration validation failed: {e}")
+    
     encoder_type = ml_cfg.get("text_encoder", "tfidf")
     rare_thresh = ml_cfg.get("rare_label_threshold", 10)
 
@@ -136,10 +144,20 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
     y_category = labeled_df["Category"]
     y_subcategory = labeled_df["Subcategory"]
 
-    # Initialize models
+    # Get model configurations
+    category_config = ml_cfg.get("category_model", {})
+    subcategory_config = ml_cfg.get("subcategory_model", {})
+    
+    category_algorithm = category_config.get("algorithm", "random_forest")
+    category_hyperparams = category_config.get("hyperparameters", {})
+    
+    subcategory_algorithm = subcategory_config.get("algorithm", "logistic_regression")
+    subcategory_hyperparams = subcategory_config.get("hyperparameters", {})
+
+    # Initialize models with configuration
     try:
-        category_model = CategoryModel()
-        subcategory_model = SubCategoryModel()
+        category_model = BaseModel(category_algorithm, category_hyperparams)
+        subcategory_model = BaseModel(subcategory_algorithm, subcategory_hyperparams)
 
         # K-fold evaluation
         print("\nPerforming 5-fold cross-validation...")
@@ -150,8 +168,8 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
 
     # Train final models on full dataset
     try:
-        final_category_model = CategoryModel()  # Fresh instance for final training
-        final_subcategory_model = SubCategoryModel()  # Fresh instance for final training
+        final_category_model = BaseModel(category_algorithm, category_hyperparams)
+        final_subcategory_model = BaseModel(subcategory_algorithm, subcategory_hyperparams)
         final_category_model.train(X_category, y_category)
         final_subcategory_model.train(X_subcategory, y_subcategory)
     except Exception as e:
@@ -203,12 +221,30 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
     meta = {
         "version": version_str,
         "trained_on": datetime.now().isoformat(),
-        "encoder": encoder_type,
-        "category_model": {"algorithm": "random_forest", "accuracy": acc_category_mean, "f1_macro": f1_category_mean},
-        "subcategory_model": {"algorithm": "logistic_regression", "accuracy": acc_subcategory_mean, "f1_macro": f1_subcategory_mean},
-        "evaluation": {"validation_strategy": "kfold", "k": 5},
-        "training_data": {"total_rows": len(labeled_df), "source_file": str(xlsx_path)},
         "notes": str(notes)[:500],  # Limit notes length
+        "global": {
+            "encoder": encoder_type,
+            "evaluation": {"validation_strategy": "kfold", "k": 5},
+            "training_data": {"total_rows": len(labeled_df), "source_file": str(xlsx_path)}
+        },
+        "models": {
+            "category": {
+                "algorithm": category_algorithm,
+                "hyperparameters": category_hyperparams,
+                "performance": {
+                    "accuracy": acc_category_mean,
+                    "f1_macro": f1_category_mean
+                }
+            },
+            "subcategory": {
+                "algorithm": subcategory_algorithm,
+                "hyperparameters": subcategory_hyperparams,
+                "performance": {
+                    "accuracy": acc_subcategory_mean,
+                    "f1_macro": f1_subcategory_mean
+                }
+            }
+        }
     }
 
     # Save metadata

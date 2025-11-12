@@ -1,0 +1,37 @@
+version: 1.1.0
+trained_on: '2025-11-11T18:49:11.112478'
+notes: Updated the ML pipeline to use different feature sets for each model. Moved
+  definition of feature sets from hardcoded to config.yaml. Also renamed models (Model
+  A -> CategoryModel, Model B -> SubcategoryModel). Category model will use 2 features
+  instead of 3 (we are dropping Automated Trans. Category from its features). Features
+  for SubcategoryModel remains the same. This is a minor change to test model results.
+  Number of labeled rows remain the same as previous version (452). Expecting mild
+  imp
+global:
+  encoder: tfidf
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+    total_rows: 452
+models:
+  category:
+    algorithm: random_forest
+    performance:
+      accuracy: 0.9933577533577533
+      f1_macro: 0.9834594393750432
+  subcategory:
+    algorithm: logistic_regression
+    performance:
+      accuracy: 0.7367765567765568
+      f1_macro: 0.557984685724706
+
+#Manually added notes:
+
+#Category Model (RandomForest)
+#Slight performance dip (< 0.3 pp) — practically negligible.
+
+#Subcategory Model (Logistic Regression)
+#No change

@@ -7,12 +7,12 @@ Utility functions for:
 """
 
 import os
-import yaml
-import joblib
 from datetime import datetime
 from pathlib import Path
-from packaging import version
+
 import matplotlib.pyplot as plt
+import yaml
+from packaging import version
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, f1_score
 
 
@@ -60,4 +60,4 @@ def save_metadata(metadata_path: Path, data: dict):
         archived = metadata_path.parent / "history" / f"metadata_{timestamp}.yaml"
         os.rename(metadata_path, archived)
     with open(metadata_path, "w") as f:
-        yaml.safe_dump(data, f)
+        yaml.safe_dump(data, f, sort_keys=False)

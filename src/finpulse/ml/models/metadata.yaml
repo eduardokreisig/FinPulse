@@ -1,34 +1,34 @@
-category_model:
-  accuracy: 0.9933577533577533
-  algorithm: random_forest
-  f1_macro: 0.9834594393750432
-encoder: tfidf
-evaluation:
-  k: 5
-  validation_strategy: kfold
-notes: Updated the ML pipeline to use different feature sets for each model. Moved
-  definition of feature sets from hardcoded to config.yaml. Also renamed models (Model
-  A -> CategoryModel, Model B -> SubcategoryModel). Category model will use 2 features
-  instead of 3 (we are dropping Automated Trans. Category from its features). Features
-  for SubcategoryModel remains the same. This is a minor change to test model results.
-  Number of labeled rows remain the same as previous version (452). Expecting mild
-  imp
-subcategory_model:
-  accuracy: 0.7367765567765568
-  algorithm: logistic_regression
-  f1_macro: 0.557984685724706
-trained_on: '2025-11-11T18:49:11.112478'
-training_data:
-  source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
-    2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
-  total_rows: 452
-version: 1.1.0
-
-
-#Manually added notes:
-
-#Category Model (RandomForest)
-#Slight performance dip (< 0.3 pp) — practically negligible.
-
-#Subcategory Model (Logistic Regression)
-#No change
+version: 1.1.3
+trained_on: '2025-11-12T12:37:28.312691'
+notes: Testing minor refactor on metadata.yaml generation. No changes expected to
+  models accuracy and F1 score.
+global:
+  encoder: tfidf
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    total_rows: 452
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+models:
+  category:
+    algorithm: random_forest
+    hyperparameters:
+      n_estimators: 300
+      max_depth: null
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.9933577533577533
+      f1_macro: 0.9834594393750432
+  subcategory:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      max_iter: 500
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.7367765567765568
+      f1_macro: 0.557984685724706
