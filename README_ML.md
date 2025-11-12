@@ -1,14 +1,14 @@
 # FinPulse Machine Learning Subsystem
 
 ## Overview
-FinPulse ML adds automated inference for **Classification** and **Type** fields in your Finance Workbook.  
+FinPulse ML adds automated inference for **Category** and **Subcategory** fields in your Finance Workbook.  
 It uses small supervised models trained on rows that already contain labels.
 
 ---
 
 ## Key Features
-- **Model A:** Random Forest → predicts *Classification*
-- **Model B:** Multinomial Logistic Regression → predicts *Type*
+- **CategoryModel:** Random Forest → predicts *Category*
+- **SubCategoryModel:** Multinomial Logistic Regression → predicts *Subcategory*
 - **TF-IDF** text encoder (default), future support for **Sentence-BERT**
 - Config-driven algorithms (`config.yaml`)
 - Model versioning + metadata tracking
@@ -23,7 +23,8 @@ It uses small supervised models trained on rows that already contain labels.
 src/finpulse/ml/
 ├── preprocess.py           # Data loading / cleaning
 ├── text_encoder.py         # TF-IDF / S-BERT vectorization
-├── model_classification.py # Model A (Classification)
+├── model_category.py       # CategoryModel (Category)
+├── model_subcategory.py    # SubCategoryModel (Subcategory)
 ├── model_type.py           # Model B (Type)
 ├── train.py                # K-fold training & metadata
 ├── pipeline.py             # Inference on Excel workbook
@@ -54,7 +55,7 @@ src/finpulse/ml/models/
 
 Inference runs automatically at the end of a "real import" when you confirm Y in:
 ```
-Run and ingest Machine Learning predictions for Classification and Type columns? (Y/N)
+Run and ingest Machine Learning predictions for Category and Subcategory columns? (Y/N)
 ```
 
 Alternatively, it can be invoked manually:
@@ -65,8 +66,8 @@ finpulse ml infer --input "FinanceWorkbook 2025.xlsx"
 ### Versioning & Rollback
 
 - Each training generates new .joblib files:
-    - `classification_vX.joblib`
-    - `type_vX.joblib`
+    - `category_vX.joblib`
+    - `subcategory_vX.joblib`
     - `text_encoder_vX.joblib`
 - `metadata.yaml` tracks active version.
 - Old metadata is archived under `/history/`.
@@ -77,9 +78,9 @@ finpulse ml infer --input "FinanceWorkbook 2025.xlsx"
 ```
 ml:
     text_encoder: tfidf           # or "sbert"
-    model_a:
+    category_model:
         algorithm: random_forest
-    model_b:
+    subcategory_model:
         algorithm: logistic_regression
     rare_label_threshold: 10
 ```
@@ -88,7 +89,8 @@ ml:
 
 During inference:
 ```
-Classification filled by ML: X rows
+Category filled by ML: X rows
+Subcategory filled by ML: Y rows
 Type filled by ML: Y rows
 ```
 Logs are also appended to the standard FinPulse log file.

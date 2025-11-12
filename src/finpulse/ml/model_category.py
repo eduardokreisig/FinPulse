@@ -1,14 +1,14 @@
 """
-Model A - Classification predictor
+CategoryModel - Category predictor
 
-Uses RandomForestClassifier to predict 'Classification' column values.
+Uses RandomForestClassifier to predict 'Category' column values.
 """
 
 from sklearn.ensemble import RandomForestClassifier
 from .base_model import BaseModel
 
 
-class ClassificationModel(BaseModel):
+class CategoryModel(BaseModel):
     def _create_model(self):
         """Create RandomForest classifier."""
         # RandomForest chosen for robustness on small-medium tabular data

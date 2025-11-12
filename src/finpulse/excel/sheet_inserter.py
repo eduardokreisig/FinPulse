@@ -168,9 +168,9 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
     col_d = h.get("Deposits")
     col_type = h.get("Transaction Type")
     col_acc_period = h.get("Accrual period")
-    col_rev = h.get("Reviewed by Eduardo")
+    col_rev = h.get("Human Verified")
     col_notes = h.get("Notes")
-    col_type_manual = h.get("Type")
+    col_subcategory_manual = h.get("Subcategory")
 
     # Initialize debug log
     debug_log = []
@@ -275,7 +275,7 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
                 ws.cell(row=ins_at, column=col_type).value = formula
         safe_set_cell(ws, ins_at, col_rev, "No")
         safe_set_cell(ws, ins_at, col_notes, None)
-        safe_set_cell(ws, ins_at, col_type_manual, None)
+        safe_set_cell(ws, ins_at, col_subcategory_manual, None)
 
         added += 1
         new_keys.add(key)

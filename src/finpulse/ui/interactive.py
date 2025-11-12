@@ -65,7 +65,7 @@ def get_interactive_config():
     end_date = get_user_input("End date (YYYY-MM-DD)", default_end)
     
     # ML inference preference
-    ml_inference = get_yes_no("Apply ML predictions to fill missing Classification and Type values?\nYes (default) / No", True)
+    ml_inference = get_yes_no("Apply ML predictions to fill missing Category and Subcategory values?\nYes (default) / No", True)
 
     return {
         'config': config_file,

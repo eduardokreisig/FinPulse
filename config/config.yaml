@@ -104,8 +104,8 @@ sources:
     description_col: Description
 ml:
   text_encoder: tfidf           # or "sbert"
-  model_a:
+  category_model:
     algorithm: random_forest
-  model_b:
+  subcategory_model:
     algorithm: logistic_regression
   rare_label_threshold: 10

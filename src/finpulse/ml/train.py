@@ -4,7 +4,7 @@ Handles model training, evaluation, and versioning.
 Workflow:
  1. Load labeled data from workbook
  2. Encode text features using configured encoder (TF-IDF or S-BERT)
- 3. Train Model A (Classification) and Model B (Type)
+ 3. Train CategoryModel (Category) and SubCategoryModel (Subcategory)
  4. Perform K-fold cross-validation
  5. Save models, encoder, and metadata
 """
@@ -16,8 +16,8 @@ import yaml
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import KFold
 
-from .model_classification import ClassificationModel
-from .model_type import TypeModel
+from .model_category import CategoryModel
+from .model_subcategory import SubCategoryModel
 from .preprocess import load_and_prepare_details
 from .text_encoder import TextEncoder
 from .utils_model import bump_model_version, save_metadata
@@ -106,27 +106,27 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
         raise RuntimeError(f"Text encoding failed: {e}")
 
     # Prepare Y labels
-    y_class = labeled_df["Classification"]
-    y_type = labeled_df["Type"]
+    y_category = labeled_df["Category"]
+    y_subcategory = labeled_df["Subcategory"]
 
     # Initialize models
     try:
-        model_a = ClassificationModel()
-        model_b = TypeModel()
+        category_model = CategoryModel()
+        subcategory_model = SubCategoryModel()
 
         # K-fold evaluation
         print("\nPerforming 5-fold cross-validation...")
-        acc_a, f1_a = evaluate_model_kfold(model_a, X, y_class)
-        acc_b, f1_b = evaluate_model_kfold(model_b, X, y_type)
+        acc_category, f1_category = evaluate_model_kfold(category_model, X, y_category)
+        acc_subcategory, f1_subcategory = evaluate_model_kfold(subcategory_model, X, y_subcategory)
     except Exception as e:
         raise RuntimeError(f"Model training/evaluation failed: {e}")
 
     # Train final models on full dataset
     try:
-        final_model_a = ClassificationModel()  # Fresh instance for final training
-        final_model_b = TypeModel()  # Fresh instance for final training
-        final_model_a.train(X, y_class)
-        final_model_b.train(X, y_type)
+        final_category_model = CategoryModel()  # Fresh instance for final training
+        final_subcategory_model = SubCategoryModel()  # Fresh instance for final training
+        final_category_model.train(X, y_category)
+        final_subcategory_model.train(X, y_subcategory)
     except Exception as e:
         raise RuntimeError(f"Final model training failed: {e}")
 
@@ -151,32 +151,32 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
             raise ValueError(f"Invalid version string: {version_str}")
             
         encoder_file = models_dir / f"text_encoder_v{safe_version}.joblib"
-        model_a_file = models_dir / f"classification_v{safe_version}.joblib"
-        model_b_file = models_dir / f"type_v{safe_version}.joblib"
+        category_model_file = models_dir / f"category_v{safe_version}.joblib"
+        subcategory_model_file = models_dir / f"subcategory_v{safe_version}.joblib"
         
         # Ensure files are within models directory
-        for file_path in [encoder_file, model_a_file, model_b_file]:
+        for file_path in [encoder_file, category_model_file, subcategory_model_file]:
             if not str(file_path.resolve()).startswith(str(models_dir.resolve())):
                 raise ValueError(f"Invalid file path: {file_path}")
         
         encoder.save(str(encoder_file))
-        final_model_a.save(str(model_a_file))
-        final_model_b.save(str(model_b_file))
+        final_category_model.save(str(category_model_file))
+        final_subcategory_model.save(str(subcategory_model_file))
     except Exception as e:
         raise RuntimeError(f"Failed to save models: {e}")
 
     # Metadata - compute metrics efficiently
-    acc_a_mean = sum(acc_a) / len(acc_a) if acc_a else 0.0
-    f1_a_mean = sum(f1_a) / len(f1_a) if f1_a else 0.0
-    acc_b_mean = sum(acc_b) / len(acc_b) if acc_b else 0.0
-    f1_b_mean = sum(f1_b) / len(f1_b) if f1_b else 0.0
+    acc_category_mean = sum(acc_category) / len(acc_category) if acc_category else 0.0
+    f1_category_mean = sum(f1_category) / len(f1_category) if f1_category else 0.0
+    acc_subcategory_mean = sum(acc_subcategory) / len(acc_subcategory) if acc_subcategory else 0.0
+    f1_subcategory_mean = sum(f1_subcategory) / len(f1_subcategory) if f1_subcategory else 0.0
     
     meta = {
         "version": version_str,
         "trained_on": datetime.now().isoformat(),
         "encoder": encoder_type,
-        "model_a": {"algorithm": "random_forest", "accuracy": acc_a_mean, "f1_macro": f1_a_mean},
-        "model_b": {"algorithm": "logistic_regression", "accuracy": acc_b_mean, "f1_macro": f1_b_mean},
+        "category_model": {"algorithm": "random_forest", "accuracy": acc_category_mean, "f1_macro": f1_category_mean},
+        "subcategory_model": {"algorithm": "logistic_regression", "accuracy": acc_subcategory_mean, "f1_macro": f1_subcategory_mean},
         "evaluation": {"validation_strategy": "kfold", "k": 5},
         "training_data": {"total_rows": len(labeled_df), "source_file": str(xlsx_path)},
         "notes": str(notes)[:500],  # Limit notes length

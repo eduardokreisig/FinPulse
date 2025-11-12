@@ -4,7 +4,7 @@ Handles ML inference workflow after data ingestion.
 Responsibilities:
  - Load trained models and encoder
  - Perform inference for unlabeled rows
- - Write predictions into Classification (K) and Type (L) columns
+ - Write predictions into Category (K) and Subcategory (L) columns
  - Log summary statistics
 """
 
@@ -34,8 +34,8 @@ def run_ml_pipeline(cfg, xlsx_path: str):
     # Check all required model files exist
     required_files = [
         models_dir / f"text_encoder_v{version}.joblib",
-        models_dir / f"classification_v{version}.joblib",
-        models_dir / f"type_v{version}.joblib",
+        models_dir / f"category_v{version}.joblib",
+        models_dir / f"subcategory_v{version}.joblib",
     ]
     missing = [f.name for f in required_files if not f.exists()]
     if missing:
@@ -44,15 +44,15 @@ def run_ml_pipeline(cfg, xlsx_path: str):
 
     # Load models and encoder
     encoder = joblib.load(models_dir / f"text_encoder_v{version}.joblib")
-    model_a = joblib.load(models_dir / f"classification_v{version}.joblib")
-    model_b = joblib.load(models_dir / f"type_v{version}.joblib")
+    category_model = joblib.load(models_dir / f"category_v{version}.joblib")
+    subcategory_model = joblib.load(models_dir / f"subcategory_v{version}.joblib")
 
     # Load workbook
     labeled_df, unlabeled_df = load_and_prepare_details(xlsx_path)
     df = pd.read_excel(xlsx_path, sheet_name="Details")
 
     # Filter unlabeled
-    mask_unlabeled = df["Classification"].isna() | df["Type"].isna()
+    mask_unlabeled = df["Category"].isna() | df["Subcategory"].isna()
     df_unlabeled = df[mask_unlabeled].copy()
 
     if df_unlabeled.empty:
@@ -68,12 +68,12 @@ def run_ml_pipeline(cfg, xlsx_path: str):
 
     X_unlabeled = encoder.transform(X_unlabeled_text)
 
-    # Predict classifications and types
-    preds_class = model_a.predict(X_unlabeled)
-    preds_type = model_b.predict(X_unlabeled)
+    # Predict categories and subcategories
+    preds_category = category_model.predict(X_unlabeled)
+    preds_subcategory = subcategory_model.predict(X_unlabeled)
 
-    df.loc[mask_unlabeled, "Classification"] = preds_class
-    df.loc[mask_unlabeled, "Type"] = preds_type
+    df.loc[mask_unlabeled, "Category"] = preds_category
+    df.loc[mask_unlabeled, "Subcategory"] = preds_subcategory
 
     # Save results preserving formatting
     from openpyxl import load_workbook
@@ -81,26 +81,26 @@ def run_ml_pipeline(cfg, xlsx_path: str):
     ws = wb["Details"]
     
     # Find column indices
-    col_class = col_type = None
+    col_category = col_subcategory = None
     for c in range(1, ws.max_column + 1):
         header = ws.cell(row=1, column=c).value
-        if header == "Classification":
-            col_class = c
-        elif header == "Type":
-            col_type = c
+        if header == "Category":
+            col_category = c
+        elif header == "Subcategory":
+            col_subcategory = c
     
     # Update only the prediction cells
     unlabeled_indices = df_unlabeled.index
-    for i, (pred_class, pred_type) in enumerate(zip(preds_class, preds_type)):
+    for i, (pred_category, pred_subcategory) in enumerate(zip(preds_category, preds_subcategory)):
         row_idx = unlabeled_indices[i] + 2  # +2 for 1-based indexing and header
-        if col_class:
-            ws.cell(row=row_idx, column=col_class).value = pred_class
-        if col_type:
-            ws.cell(row=row_idx, column=col_type).value = pred_type
+        if col_category:
+            ws.cell(row=row_idx, column=col_category).value = pred_category
+        if col_subcategory:
+            ws.cell(row=row_idx, column=col_subcategory).value = pred_subcategory
     
     wb.save(xlsx_path)
     wb.close()
 
     print(f"✅ ML predictions written to '{Path(xlsx_path).name}'.")
-    print(f"   Classification filled by ML: {len(preds_class)} rows")
-    print(f"   Type filled by ML: {len(preds_type)} rows")
+    print(f"   Category filled by ML: {len(preds_category)} rows")
+    print(f"   Subcategory filled by ML: {len(preds_subcategory)} rows")

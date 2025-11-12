@@ -1,14 +1,14 @@
 """
-Model B - Type predictor
+SubCategoryModel - Subcategory predictor
 
-Uses Multinomial Logistic Regression to predict 'Type' column values.
+Uses Multinomial Logistic Regression to predict 'Subcategory' column values.
 """
 
 from sklearn.linear_model import LogisticRegression
 from .base_model import BaseModel
 
 
-class TypeModel(BaseModel):
+class SubCategoryModel(BaseModel):
     def _create_model(self):
         """Create Logistic Regression model."""
         # Logistic Regression works well for categorical multi-class problems
