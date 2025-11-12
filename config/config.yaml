@@ -109,10 +109,20 @@ ml:
     features:
       - "Transaction Description"
       - "Transaction Type"
+    hyperparameters:
+      n_estimators: 300
+      max_depth: null
+      n_jobs: -1
+      random_state: 42
   subcategory_model:
     algorithm: logistic_regression
     features:
       - "Transaction Description"
       - "Automated Trans. Category"
       - "Transaction Type"
+    hyperparameters:
+      solver: lbfgs
+      max_iter: 500
+      n_jobs: -1
+      random_state: 42
   rare_label_threshold: 10

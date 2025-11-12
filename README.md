@@ -115,6 +115,55 @@ python src/fin_statements_ingest.py --config config/config.yaml
 - Missing workbooks or input files are handled gracefully with warnings.
 - After a dry run, you can choose to proceed with the real import immediately.
 
+## ML Configuration
+FinPulse includes configurable machine learning models for automatic transaction categorization. Configure in `config.yaml` under the `ml` section:
+
+### Supported Algorithms
+- **random_forest**: Robust ensemble method, good for tabular data
+- **logistic_regression**: Fast linear model, highly interpretable
+- **svm**: Support Vector Machine, effective for high-dimensional data
+- **naive_bayes**: Probabilistic classifier, fast and simple
+- **decision_tree**: Tree-based model, highly interpretable
+
+### Configuration Example
+```yaml
+ml:
+  text_encoder: tfidf  # or "sbert"
+  category_model:
+    algorithm: random_forest
+    features:
+      - "Transaction Description"
+      - "Transaction Type"
+    hyperparameters:
+      n_estimators: 300
+      max_depth: null
+      random_state: 42
+  subcategory_model:
+    algorithm: logistic_regression
+    features:
+      - "Transaction Description"
+      - "Automated Trans. Category"
+    hyperparameters:
+      solver: lbfgs
+      max_iter: 500
+      random_state: 42
+```
+
+### ML Tools
+```bash
+# View available algorithms and their parameters
+python3 -m src.finpulse.ml.model_info
+
+# View specific algorithm details
+python3 -m src.finpulse.ml.model_info random_forest
+```
+
+### Configuration Validation
+- Invalid algorithms are rejected with helpful error messages
+- Hyperparameters are validated against each algorithm's requirements
+- Configuration is validated before training begins
+- See `config/config_examples.yaml` for more configuration examples
+
 ## Extending
 - **Data processing**: Modify `src/finpulse/data/normalizer.py` for custom cleaning, payee normalization, category mapping
 - **Excel operations**: Update `src/finpulse/excel/sheet_inserter.py` for custom formatting
@@ -124,6 +173,7 @@ python src/fin_statements_ingest.py --config config/config.yaml
 - **User interface**: Enhance `src/finpulse/ui/interactive.py` for better user experience
 - **Utilities**: Add new utilities in `src/finpulse/utils/`
 - **Configuration**: Enhance `src/finpulse/config/loader.py` for advanced config features
+- **ML models**: Add new algorithms to `src/finpulse/ml/model_factory.py`
 - **Automation**: Use the shell script with cron/launchd **(respecting your bank's terms of service)**
 
 ## Architecture
