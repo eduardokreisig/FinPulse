@@ -269,11 +269,18 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         if col_acc_period and hasattr(dkey, "replace"):
             safe_set_cell(ws, ins_at, col_acc_period, dkey.replace(day=1))
         if col_type:
-            # Validate row number before creating formula
-            safe_row = sanitize_row_number(ins_at)
-            formula = f'=IF(AND(F{safe_row}<>0,G{safe_row}<>0),"Error",IF(F{safe_row}<0,"Withdrawal",IF(G{safe_row}>0,"Deposit","")))'  
-            if is_safe_formula(formula):
-                ws.cell(row=ins_at, column=col_type).value = formula
+            # Determine transaction type based on withdrawal/deposit amounts
+            w_amt = float(row_data["amount"]) if float(row_data["amount"]) < 0 else 0.0
+            d_amt = float(row_data["amount"]) if float(row_data["amount"]) > 0 else 0.0
+            
+            if w_amt < 0 and d_amt == 0:
+                transaction_type = "Withdrawal"
+            elif w_amt == 0 and d_amt > 0:
+                transaction_type = "Deposit"
+            else:
+                transaction_type = "<Error>"
+            
+            safe_set_cell(ws, ins_at, col_type, transaction_type)
         safe_set_cell(ws, ins_at, col_rev, "No")
         safe_set_cell(ws, ins_at, col_notes, None)
         safe_set_cell(ws, ins_at, col_subcategory_manual, None)
