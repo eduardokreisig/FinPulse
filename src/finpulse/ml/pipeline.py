@@ -45,8 +45,15 @@ def run_ml_pipeline(cfg, xlsx_path: str):
         return
 
     # Load models and encoders
-    category_encoder = joblib.load(models_dir / f"category_encoder_v{version}.joblib")
-    subcategory_encoder = joblib.load(models_dir / f"subcategory_encoder_v{version}.joblib")
+    from .text_encoder import TextEncoder
+    
+    # Load text encoders properly
+    category_encoder = TextEncoder(method=meta.get("global", {}).get("encoder", "tfidf"))
+    category_encoder.load(str(models_dir / f"category_encoder_v{version}.joblib"))
+    
+    subcategory_encoder = TextEncoder(method=meta.get("global", {}).get("encoder", "tfidf"))
+    subcategory_encoder.load(str(models_dir / f"subcategory_encoder_v{version}.joblib"))
+    
     category_model = joblib.load(models_dir / f"category_v{version}.joblib")
     subcategory_model = joblib.load(models_dir / f"subcategory_v{version}.joblib")
 
