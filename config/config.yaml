@@ -103,26 +103,34 @@ sources:
     date_format: "%m/%d/%y"
     description_col: Description
 ml:
-  text_encoder: tfidf           # or "sbert"
+  text_encoder: sbert           # or "tfidf"
   category_model:
-    algorithm: random_forest
+    algorithm: logistic_regression
     features:
       - "Transaction Description"
       - "Transaction Type"
     hyperparameters:
-      n_estimators: 300
-      max_depth: null
+      solver: lbfgs
+      penalty: l2
+      C: 4.0
+      max_iter: 1000
+      class_weight: balanced
       n_jobs: -1
       random_state: 42
+
   subcategory_model:
-    algorithm: logistic_regression
+    algorithm: random_forest
     features:
       - "Transaction Description"
       - "Automated Trans. Category"
       - "Transaction Type"
     hyperparameters:
-      solver: lbfgs
-      max_iter: 500
+      n_estimators: 300
+      max_depth: 15
+      min_samples_split: 2
+      min_samples_leaf: 1
+      max_features: sqrt
+      class_weight: balanced
       n_jobs: -1
       random_state: 42
   rare_label_threshold: 10

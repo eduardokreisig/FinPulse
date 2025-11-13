@@ -7,7 +7,12 @@ The encoder is configured via config.yaml (ml.text_encoder).
 """
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-# from sentence_transformers import SentenceTransformer  # Uncomment for S-BERT
+try:
+    from sentence_transformers import SentenceTransformer
+    SBERT_AVAILABLE = True
+except ImportError:
+    SentenceTransformer = None
+    SBERT_AVAILABLE = False
 import numpy as np
 import joblib
 import os
@@ -24,8 +29,9 @@ class TextEncoder:
             self.vectorizer = TfidfVectorizer(max_features=5000, ngram_range=(1, 2))
             self.vectorizer.fit(text_series)
         elif self.method == "sbert":
-            # self.vectorizer = SentenceTransformer("all-MiniLM-L6-v2")
-            raise NotImplementedError("S-BERT encoder not yet implemented in current version.")
+            if not SBERT_AVAILABLE:
+                raise ImportError("sentence-transformers not installed. Run: pip install sentence-transformers")
+            self.vectorizer = SentenceTransformer("all-MiniLM-L6-v2")
         else:
             raise ValueError(f"Unknown encoding method: {self.method}")
 
