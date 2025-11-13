@@ -1,7 +1,7 @@
-version: 1.1.9
-trained_on: '2025-11-12T14:30:15.623598'
-notes: Testing Random Forest for both Category and Subcategory with a slight different
-  setting for n_estimators and other hyperparameters identical.
+version: 1.1.10
+trained_on: '2025-11-12T18:19:39.158849'
+notes: Updated config.yaml to use best performing-algorithms and hyperparameters for
+  both models based on accuracy and F1.
 global:
   encoder: sbert
   evaluation:
@@ -13,19 +13,18 @@ global:
       2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
 models:
   category:
-    algorithm: random_forest
+    algorithm: logistic_regression
     hyperparameters:
-      n_estimators: 200
-      max_depth: 15
-      min_samples_split: 2
-      min_samples_leaf: 1
-      max_features: sqrt
+      solver: lbfgs
+      penalty: l2
+      C: 4.0
+      max_iter: 1000
       class_weight: balanced
       n_jobs: -1
       random_state: 42
     performance:
-      accuracy: 0.9911355311355312
-      f1_macro: 0.9803392579691476
+      accuracy: 0.9955799755799756
+      f1_macro: 0.9845429666119321
   subcategory:
     algorithm: random_forest
     hyperparameters:
