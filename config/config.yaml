@@ -36,6 +36,7 @@ sources:
     date_col: Transaction Date
     date_format: "%m/%d/%y"
     description_col: Description
+    automated_trans_cat_col: Category
   Chase - Prime Visa:
     bank_label: Chase
     account_label: Prime Visa
@@ -47,6 +48,7 @@ sources:
     date_col: Transaction Date
     date_format: "%m/%d/%y"
     description_col: Description
+    automated_trans_cat_col: Category
   First Tech - Checkings:
     bank_label: First Tech
     account_label: Checkings
@@ -69,6 +71,7 @@ sources:
     date_col: Posting Date
     date_format: "%m/%d/%y"
     description_col: Description
+    automated_trans_cat_col: Transaction Category
   First Tech - Savings:
     bank_label: First Tech
     account_label: Savings
@@ -80,6 +83,7 @@ sources:
     date_col: Posting Date
     date_format: "%m/%d/%y"
     description_col: Description
+    automated_trans_cat_col: Transaction Category
   First Tech - Certificate 0958:
     bank_label: First Tech
     account_label: Certificate 0958
@@ -91,6 +95,7 @@ sources:
     date_col: Posting Date
     date_format: "%m/%d/%y"
     description_col: Description
+    automated_trans_cat_col: Type
   First Tech - Certificate 4926:
     bank_label: First Tech
     account_label: Certificate 4926
@@ -102,6 +107,7 @@ sources:
     date_col: Posting Date
     date_format: "%m/%d/%y"
     description_col: Description
+    automated_trans_cat_col: Type
 ml:
   text_encoder: sbert           # or "tfidf"
   category_model:

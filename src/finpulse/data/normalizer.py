@@ -133,6 +133,12 @@ def normalize(df_in: pd.DataFrame, norm_cfg: dict) -> pd.DataFrame:
     resolved = resolve_multiple_cols(df, norm_cfg, col_mappings)
     date_name, date_raw = resolved['date']
     desc_name, desc_raw = resolved['desc']
+    
+    # Handle automated transaction category column
+    automated_cat_col = norm_cfg.get("automated_trans_cat_col")
+    automated_cat_raw = None
+    if automated_cat_col and automated_cat_col in df.columns:
+        automated_cat_raw = df[automated_cat_col]
 
     # If a specific amount_col is declared, use it; else infer
     amount_col = None
@@ -181,5 +187,10 @@ def normalize(df_in: pd.DataFrame, norm_cfg: dict) -> pd.DataFrame:
         "amount": pd.to_numeric(amount, errors="coerce").fillna(0.0).round(2),
         "description": desc_raw.astype(str).map(lambda x: " ".join(x.split())),
     })
+    
+    # Add automated transaction category if available
+    if automated_cat_raw is not None:
+        out["automated_trans_category"] = automated_cat_raw.fillna("").astype(str)
+    
     out["source_file"] = df.get("__source_file", "")
     return out

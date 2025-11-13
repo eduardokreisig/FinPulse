@@ -124,12 +124,18 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
             if raw_map:
                 for sheet_header, csv_col in raw_map.items():
                     raw_payload[csv_col] = df_in.loc[idx, csv_col] if csv_col in df_in.columns else None
-            rows.append({
+            row_data = {
                 "date": nrow["date"],
                 "amount": float(nrow["amount"]),
                 "description": nrow["description"],
                 "__raw__": raw_payload
-            })
+            }
+            
+            # Add automated transaction category if available
+            if "automated_trans_category" in nrow:
+                row_data["automated_trans_category"] = nrow["automated_trans_category"]
+            
+            rows.append(row_data)
         
         # Process this file's data
         acct_added, acct_existing, new_acct_keys = insert_into_account_sheet(

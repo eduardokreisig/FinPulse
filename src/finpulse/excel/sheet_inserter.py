@@ -171,6 +171,7 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
     col_rev = h.get("Human Verified")
     col_notes = h.get("Notes")
     col_subcategory_manual = h.get("Subcategory")
+    col_automated_trans_cat = h.get("Automated Trans. Category")
 
     # Initialize debug log
     debug_log = []
@@ -276,6 +277,12 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         safe_set_cell(ws, ins_at, col_rev, "No")
         safe_set_cell(ws, ins_at, col_notes, None)
         safe_set_cell(ws, ins_at, col_subcategory_manual, None)
+        
+        # Set automated transaction category if available
+        if col_automated_trans_cat and "automated_trans_category" in row_data:
+            automated_cat = row_data["automated_trans_category"]
+            if automated_cat and str(automated_cat).strip():
+                safe_set_cell(ws, ins_at, col_automated_trans_cat, str(automated_cat).strip())
 
         added += 1
         new_keys.add(key)
