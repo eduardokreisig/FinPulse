@@ -194,12 +194,11 @@ def run_application(args):
 
         print(f"Original Workbook: {original_xlsx}")
         if not original_xlsx.exists():
-            print(f"  exists: False  size: 0 bytes")
-            print(f"  modified: n/a")
-            print(f"Warning: Target workbook '{original_xlsx}' does not exist")
-            if not args.dry_run and not get_yes_no("Continue anyway?", False):
-                sys.exit(1)
-            xlsx = original_xlsx  # Use original path if it doesn't exist
+            print(f"\n❌ WORKBOOK NOT FOUND")
+            print(f"The target workbook does not exist at the specified location:")
+            print(f"  {original_xlsx}")
+            print(f"\nPlease check the path and ensure the workbook exists before running FinPulse.")
+            sys.exit(1)
         else:
             print(f"  exists: True  size: {original_xlsx.stat().st_size} bytes")
             print(f"  modified: {get_timestamp(original_xlsx)}")
