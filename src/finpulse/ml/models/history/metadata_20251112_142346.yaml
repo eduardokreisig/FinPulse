@@ -1,0 +1,39 @@
+version: 1.1.7
+trained_on: '2025-11-12T14:19:21.445543'
+notes: Testing minor change on Subcategory hyperparameters
+global:
+  encoder: sbert
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    total_rows: 452
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+models:
+  category:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      penalty: l2
+      C: 4.0
+      max_iter: 1000
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.9955799755799756
+      f1_macro: 0.9845429666119321
+  subcategory:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      penalty: l2
+      C: 3.0
+      max_iter: 1000
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.7677899877899879
+      f1_macro: 0.7054524016989543

@@ -1,0 +1,41 @@
+version: 1.1.10
+trained_on: '2025-11-12T18:19:39.158849'
+notes: Updated config.yaml to use best performing-algorithms and hyperparameters for
+  both models based on accuracy and F1.
+global:
+  encoder: sbert
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    total_rows: 452
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+models:
+  category:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      penalty: l2
+      C: 4.0
+      max_iter: 1000
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.9955799755799756
+      f1_macro: 0.9845429666119321
+  subcategory:
+    algorithm: random_forest
+    hyperparameters:
+      n_estimators: 300
+      max_depth: 15
+      min_samples_split: 2
+      min_samples_leaf: 1
+      max_features: sqrt
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.8142368742368742
+      f1_macro: 0.7356975224455844

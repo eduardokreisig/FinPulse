@@ -250,7 +250,7 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
         src_row = ins_at - 1 if ins_at > 2 else ins_at + 1
         copy_row_styles(ws, src_row, ins_at)
         
-        # Copy formulas from source row
+        # Copy formulas from source row (excluding accrual period)
         copy_formulas_to_row(ws, src_row, ins_at)
 
         safe_set_cell(ws, ins_at, col_bank, bank_label)
@@ -266,8 +266,9 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
             safe_set_cell(ws, ins_at, col_w, 0.0)
             safe_set_cell(ws, ins_at, col_d, amt)
 
+        # Set accrual period as static value (first day of transaction month)
         if col_acc_period and hasattr(dkey, "replace"):
-            safe_set_cell(ws, ins_at, col_acc_period, dkey.replace(day=1))
+            ws.cell(row=ins_at, column=col_acc_period).value = dkey.replace(day=1)
         if col_type:
             # Determine transaction type based on withdrawal/deposit amounts
             w_amt = float(row_data["amount"]) if float(row_data["amount"]) < 0 else 0.0

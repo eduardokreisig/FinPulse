@@ -1,0 +1,42 @@
+version: 1.1.9
+trained_on: '2025-11-12T14:30:15.623598'
+notes: Testing Random Forest for both Category and Subcategory with a slight different
+  setting for n_estimators and other hyperparameters identical.
+global:
+  encoder: sbert
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    total_rows: 452
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+models:
+  category:
+    algorithm: random_forest
+    hyperparameters:
+      n_estimators: 200
+      max_depth: 15
+      min_samples_split: 2
+      min_samples_leaf: 1
+      max_features: sqrt
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.9911355311355312
+      f1_macro: 0.9803392579691476
+  subcategory:
+    algorithm: random_forest
+    hyperparameters:
+      n_estimators: 300
+      max_depth: 15
+      min_samples_split: 2
+      min_samples_leaf: 1
+      max_features: sqrt
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.8142368742368742
+      f1_macro: 0.7356975224455844

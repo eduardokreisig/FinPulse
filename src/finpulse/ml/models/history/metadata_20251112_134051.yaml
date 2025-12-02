@@ -1,0 +1,33 @@
+version: 1.1.4
+trained_on: '2025-11-12T13:23:07.498574'
+notes: Testing logistic regression on Category model
+global:
+  encoder: tfidf
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    total_rows: 452
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+models:
+  category:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      max_iter: 500
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.9602686202686203
+      f1_macro: 0.9065937643511598
+  subcategory:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      max_iter: 500
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.7367765567765568
+      f1_macro: 0.557984685724706

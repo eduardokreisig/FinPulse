@@ -1,0 +1,41 @@
+version: 1.1.6
+trained_on: '2025-11-12T14:12:55.716226'
+notes: Testing hyperparameters changes for both models considering now S-BERT is being
+  used while keeping Logistic Regression for both. Tuned C and class_weight and explicitly
+  added Penalty l2.
+global:
+  encoder: sbert
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    total_rows: 452
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+models:
+  category:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      penalty: l2
+      C: 4.0
+      max_iter: 1000
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.9955799755799756
+      f1_macro: 0.9845429666119321
+  subcategory:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      penalty: l2
+      C: 4.0
+      max_iter: 1000
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.7899145299145299
+      f1_macro: 0.7147696225967479

@@ -1,0 +1,33 @@
+version: 1.1.1
+trained_on: '2025-11-12T11:57:26.435793'
+notes: Testing major refactoring of model training. No changes expected to model outputs.
+global:
+  encoder: tfidf
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 BKP 2025-11-11 (labels reviewed for supervised learning - NEW field names).xlsx
+    total_rows: 452
+models:
+  category:
+    algorithm: random_forest
+    hyperparameters:
+      n_estimators: 300
+      max_depth: null
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.9933577533577533
+      f1_macro: 0.9834594393750432
+  subcategory:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      max_iter: 500
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.7367765567765568
+      f1_macro: 0.557984685724706
