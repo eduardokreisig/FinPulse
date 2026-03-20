@@ -14,8 +14,12 @@ Organization (low-level to high-level):
 """
 
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
+
+from ..core.runner import run_application
+from ..config.loader import load_config
 
 
 # =============================================================================
@@ -338,7 +342,6 @@ def _run_ingestion(run_inference: bool, title: str) -> None:
     args.inputs = config['inputs']
     args.ml_inference_requested = config['ml_inference']
     
-    from ..core.runner import run_application
     run_application(args)
 
 
@@ -353,8 +356,8 @@ def _run_ml_inference() -> None:
     print(f"\n{'='*HEADER_WIDTH}\n  Category and Subcategory Inference\n{'='*HEADER_WIDTH}")
     config = get_ml_inference_config()
     
+    # Lazy import - ML dependencies are optional
     from ..ml.pipeline import run_ml_pipeline
-    from ..config.loader import load_config
     
     print(f"\nRunning ML inference on: {config['input']}")
     cfg = load_config(config['config'])
@@ -373,6 +376,7 @@ def _run_ml_training() -> None:
     print(f"\n{'='*HEADER_WIDTH}\n  Model Retraining\n{'='*HEADER_WIDTH}")
     config = get_ml_training_config()
     
+    # Lazy import - ML dependencies are optional
     from ..ml.train import train_models
     
     print(f"\nTraining models with:")
@@ -492,6 +496,5 @@ def run_interactive_mode() -> None:
         sys.exit(1)
     except Exception as e:
         print(f"\n❌ Operation failed: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)

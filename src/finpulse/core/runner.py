@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .processor import process_source
 from ..config.loader import get_log_directory, load_config
-from ..ui.interactive import get_interactive_config, get_yes_no
+from ..ui.interactive import get_ingestion_config, get_yes_no
 from ..utils.logging_utils import Tee, setup_logging, utc_log_name
 from ..utils.path_utils import create_timestamped_copy, get_timestamp
 
@@ -162,7 +162,7 @@ def run_application(args):
     # Interactive mode if no config provided
     interactive_config = None
     if not args.config:
-        interactive_config = get_interactive_config()
+        interactive_config = get_ingestion_config()
         args.config = interactive_config['config']
         args.start = args.start or interactive_config['start']
         args.end = args.end or interactive_config['end']

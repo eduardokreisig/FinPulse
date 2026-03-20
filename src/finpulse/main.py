@@ -325,6 +325,15 @@ Examples:
             print(f"❌ Import Error: {e}")
             print("\nMake sure ML dependencies are installed:")
             print("  pip install -r requirements-ml.txt")
+            # Mention the missing modules
+            if 'train_models' in str(e) or 'ml.train' in str(e):
+                print("  (train_models module)")
+            elif 'run_ml_pipeline' in str(e) or 'ml.pipeline' in str(e):
+                print("  (run_ml_pipeline module)")
+            elif 'get_ml_training_config' in str(e):
+                print("  (get_ml_training_config function)")
+            elif 'load_config' in str(e):
+                print("  (load_config function)")
             sys.exit(1)
             
         except FileNotFoundError as e:
