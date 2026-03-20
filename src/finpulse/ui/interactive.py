@@ -17,6 +17,7 @@ import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 from ..core.runner import run_application
 from ..config.loader import load_config
@@ -327,20 +328,17 @@ def _run_ingestion(run_inference: bool, title: str) -> None:
     print(f"\n{'='*HEADER_WIDTH}\n  {title}\n{'='*HEADER_WIDTH}")
     config = get_ingestion_config(run_inference=run_inference)
     
-    # Create args namespace for runner
-    class Args:
-        pass
-    
-    args = Args()
-    args.config = config['config']
-    args.start = config['start']
-    args.end = config['end']
-    args.dry_run = False
-    args.log_dir = config['logs']
-    args.workspace = config['workspace']
-    args.workbook = config['workbook']
-    args.inputs = config['inputs']
-    args.ml_inference_requested = config['ml_inference']
+    args = SimpleNamespace(
+        config=config['config'],
+        start=config['start'],
+        end=config['end'],
+        dry_run=False,
+        log_dir=config['logs'],
+        workspace=config['workspace'],
+        workbook=config['workbook'],
+        inputs=config['inputs'],
+        ml_inference_requested=config['ml_inference']
+    )
     
     run_application(args)
 

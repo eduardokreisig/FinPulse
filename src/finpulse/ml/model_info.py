@@ -1,7 +1,8 @@
 """
-CLI tool to display information about available ML models and their parameters.
+Utility to display information about available ML models and their parameters.
 
-Usage: python -m src.finpulse.ml.model_info [algorithm]
+This module is used internally by the CLI. Use the main CLI instead:
+    python -m src.finpulse.main ml --help
 """
 
 import sys
@@ -43,7 +44,3 @@ def main():
         print_algorithm_info(algorithm)
     else:
         print_all_algorithms()
-
-
-if __name__ == "__main__":
-    main()

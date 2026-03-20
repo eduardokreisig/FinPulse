@@ -4,7 +4,7 @@ This toolkit helps you pull exported transactions from multiple banks and append
 
 ## What you get
 - **src/finpulse/** – modular Python package with separate modules for data processing, Excel operations, ML, and utilities
-- **src/fin_statements_ingest.py** – main entry point that uses the modular package
+- **src/finpulse/main.py** – main entry point with interactive and CLI modes
 - **config/config.yaml** – where you define your target workbook, per‑source file globs, column mappings, and ML configuration
 - **ML categorization** – automatic Category and Subcategory prediction using trained models
 - Clean, maintainable code following Python best practices
@@ -59,12 +59,9 @@ FinPulse/
         logging_utils.py      # Logging & Tee class
         path_utils.py         # Path validation
         date_utils.py         # Date parsing
-    fin_statements_ingest.py  # Main entry point
   config/
     config.yaml             # Main configuration
     config_examples.yaml    # Configuration examples
-  scripts/
-    run-finance-ingest.sh
   requirements-ml.txt         # ML dependencies
   README_ML.md               # Detailed ML documentation
 ../Inputs/                    # Bank export files
@@ -99,9 +96,6 @@ Edit **config/config.yaml**:
 ```bash
 # Interactive setup with prompts
 python3 -m src.finpulse.main
-
-# Or use the provided script (runs interactive mode)
-./scripts/run-finance-ingest.sh
 ```
 This will prompt you for:
 - Config file location (default: config/config.yaml)
@@ -116,14 +110,17 @@ This will prompt you for:
 
 ### Command Line Mode
 ```bash
-# From the FinPulse directory
-python3 -m src.finpulse.main --config config/config.yaml --start 2025-01-01 --end 2025-10-11
+# Data ingestion with date range
+python3 -m src.finpulse.main ingest --config config/config.yaml --start 2025-01-01 --end 2025-12-31
 
 # Dry run to test without changes
-python3 -m src.finpulse.main --config config/config.yaml --dry-run
+python3 -m src.finpulse.main ingest --dry-run
 
-# Direct script execution (alternative)
-python src/fin_statements_ingest.py --config config/config.yaml
+# ML training
+python3 -m src.finpulse.main ml train --input "FinanceWorkbook 2025.xlsx" --bump minor
+
+# ML inference
+python3 -m src.finpulse.main ml infer --input "FinanceWorkbook 2025.xlsx"
 ```
 - **Automatic backup**: Creates a timestamped copy of your workbook before making changes, preserving your original file.
 - The script appends only **new** rows by computing deduplication keys from date, description, and amount.
@@ -151,14 +148,14 @@ FinPulse includes intelligent transaction categorization using two specialized M
 ### ML Commands
 ```bash
 # Train models on existing labeled data
-python3 -m src.finpulse.ml.train --input "FinanceWorkbook 2025.xlsx"
+python3 -m src.finpulse.main ml train --input "FinanceWorkbook 2025.xlsx" --bump minor
 
 # Run inference on new transactions
-python3 -m src.finpulse.ml.pipeline --input "FinanceWorkbook 2025.xlsx"
+python3 -m src.finpulse.main ml infer --input "FinanceWorkbook 2025.xlsx"
 
-# View available algorithms and parameters
-python3 -m src.finpulse.ml.model_info
-python3 -m src.finpulse.ml.model_info random_forest
+# Get help on ML commands
+python3 -m src.finpulse.main ml --help
+python3 -m src.finpulse.main ml train --help
 ```
 
 ### Text Encoding Options
@@ -273,7 +270,7 @@ ml:
 - **ML pipeline**: Customize `src/finpulse/ml/pipeline.py` for inference workflow
 - **Utilities**: Add new utilities in `src/finpulse/utils/`
 - **Configuration**: Enhance `src/finpulse/config/loader.py` for advanced config features
-- **Automation**: Use the shell script with cron/launchd **(respecting your bank's terms of service)**
+- **Automation**: Use cron/launchd with the CLI commands **(respecting your bank's terms of service)**
 
 ## Architecture
 - **Modular design**: Clean separation of concerns across focused modules
