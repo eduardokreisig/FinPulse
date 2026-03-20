@@ -1,16 +1,15 @@
-version: 2.1.0
-trained_on: '2025-12-01T15:00:19.822044'
-notes: Tuned hyperparameters hoping to optimize resuts with mode traninig data (1246
-  vs 452 previously)
+version: 2.2.0
+trained_on: '2026-03-19T22:24:20.518237'
+notes: Traininig with full 2025 transactions labeled
 global:
   encoder: sbert
   evaluation:
     validation_strategy: kfold
     k: 5
   training_data:
-    total_rows: 1246
-    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/Training
-      data/FinanceWorkbook 2025 - Retraining 2025-12-01 w1246 labels.xlsx
+    total_rows: 1478
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 (FINAL).xlsx
 models:
   category:
     algorithm: logistic_regression
@@ -23,8 +22,8 @@ models:
       n_jobs: -1
       random_state: 42
     performance:
-      accuracy: 0.9871518072289156
-      f1_macro: 0.7844267425386607
+      accuracy: 0.987150710032066
+      f1_macro: 0.7341028838642691
   subcategory:
     algorithm: random_forest
     hyperparameters:
@@ -37,5 +36,5 @@ models:
       n_jobs: -1
       random_state: 42
     performance:
-      accuracy: 0.8820144578313253
-      f1_macro: 0.7747190490864135
+      accuracy: 0.8978447091158955
+      f1_macro: 0.7900655175557766

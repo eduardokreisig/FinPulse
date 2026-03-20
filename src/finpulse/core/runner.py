@@ -31,27 +31,33 @@ def setup_log_file(log_dir: Path, is_dry_run: bool):
 
 def update_config_with_interactive(cfg: dict, interactive_config: dict):
     """Update configuration with interactive inputs."""
-    workspace_path = Path(interactive_config['workspace']).resolve()
-    cfg['target_workbook'] = str(workspace_path / interactive_config['workbook'])
-    cfg['log_dir'] = interactive_config['logs']
+    workspace = interactive_config.get('workspace')
+    workbook = interactive_config.get('workbook')
+    inputs = interactive_config.get('inputs')
+    logs = interactive_config.get('logs')
+
+    workspace_path = Path(workspace).resolve() if workspace else None
+    if workspace_path and workbook:
+        cfg['target_workbook'] = str(workspace_path / workbook)
+    if logs:
+        cfg['log_dir'] = logs
 
     # Update source file paths to use new inputs folder
-    inputs_path = Path(interactive_config['inputs'])
-    for src_name, src_cfg in cfg.get('sources', {}).items():
-        if 'files' in src_cfg:
-            # Replace the base path in file globs
-            updated_files = []
-            for file_pattern in src_cfg['files']:
-                # Extract the relative part after 'Inputs'
-                pattern_path = Path(file_pattern)
-                if 'Inputs' in pattern_path.parts:
-                    inputs_idx = pattern_path.parts.index('Inputs')
-                    relative_part = Path(*pattern_path.parts[inputs_idx+1:])
-                    new_pattern = inputs_path / relative_part
-                    updated_files.append(str(new_pattern))
-                else:
-                    updated_files.append(file_pattern)
-            src_cfg['files'] = updated_files
+    if inputs:
+        inputs_path = Path(inputs)
+        for src_name, src_cfg in cfg.get('sources', {}).items():
+            if 'files' in src_cfg:
+                updated_files = []
+                for file_pattern in src_cfg['files']:
+                    pattern_path = Path(file_pattern)
+                    if 'Inputs' in pattern_path.parts:
+                        inputs_idx = pattern_path.parts.index('Inputs')
+                        relative_part = Path(*pattern_path.parts[inputs_idx+1:])
+                        new_pattern = inputs_path / relative_part
+                        updated_files.append(str(new_pattern))
+                    else:
+                        updated_files.append(file_pattern)
+                src_cfg['files'] = updated_files
 
 
 def print_summary(sources_processed: int, sources_with_data: int, total_accounts: int, 
@@ -170,6 +176,16 @@ def run_application(args):
         args.start = args.start or interactive_config['start']
         args.end = args.end or interactive_config['end']
         args.log_dir = args.log_dir or interactive_config['logs']
+    elif any(getattr(args, key, None) for key in ('workspace', 'workbook', 'inputs', 'log_dir')):
+        interactive_config = {
+            'config': args.config,
+            'workspace': getattr(args, 'workspace', None),
+            'workbook': getattr(args, 'workbook', None),
+            'inputs': getattr(args, 'inputs', None),
+            'logs': getattr(args, 'log_dir', None),
+            'start': getattr(args, 'start', None),
+            'end': getattr(args, 'end', None),
+        }
 
     try:
         cfg = load_config(args.config)

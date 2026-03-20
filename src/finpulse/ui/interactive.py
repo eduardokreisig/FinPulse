@@ -50,6 +50,14 @@ class ValidationError(Exception):
 # Low-Level Input Helpers
 # =============================================================================
 
+def _prompt_input(prompt_text: str) -> str:
+    """Read user input and convert terminal interrupts into clean cancellations."""
+    try:
+        return input(prompt_text)
+    except (KeyboardInterrupt, EOFError) as exc:
+        raise UserCancelledError("User interrupted interactive input") from exc
+
+
 def get_user_input(prompt: str, default: str = None) -> str:
     """Get user input with optional default value.
     
@@ -61,9 +69,9 @@ def get_user_input(prompt: str, default: str = None) -> str:
         The user's input or default value
     """
     if default:
-        response = input(f"{prompt} [{default}]: ").strip()
+        response = _prompt_input(f"{prompt} [{default}]: ").strip()
         return response if response else default
-    return input(f"{prompt}: ").strip()
+    return _prompt_input(f"{prompt}: ").strip()
 
 
 def get_yes_no(prompt: str, default: bool = False) -> bool:
@@ -78,7 +86,7 @@ def get_yes_no(prompt: str, default: bool = False) -> bool:
     """
     default_str = "Y/n" if default else "y/N"
     while True:
-        response = input(f"{prompt} [{default_str}]: ").strip().lower()
+        response = _prompt_input(f"{prompt} [{default_str}]: ").strip().lower()
         if not response:
             return default
         if response in ['y', 'yes']:
@@ -101,10 +109,10 @@ def get_choice_input(prompt: str, choices: list, default: str = None) -> str:
     """
     while True:
         if default:
-            response = input(f"{prompt} [{default}]: ").strip().lower()
+            response = _prompt_input(f"{prompt} [{default}]: ").strip().lower()
             value = response if response else default
         else:
-            value = input(f"{prompt}: ").strip().lower()
+            value = _prompt_input(f"{prompt}: ").strip().lower()
         
         if value in choices:
             return value
@@ -134,36 +142,32 @@ def get_ingestion_config(run_inference: bool = True) -> dict:
     current_year = datetime.now().year
 
     # Get config file
-    config_file = get_user_input("Config file path", "config/config.yaml")
-    config_path = Path(config_file)
-    if not config_path.exists():
-        print(f"Warning: Config file {config_path} does not exist")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Config file does not exist")
+    while True:
+        config_file = get_user_input("Config file path", "config/config.yaml")
+        config_path = Path(config_file)
+        if config_path.exists() or get_yes_no(f"Warning: Config file {config_path} does not exist. Continue anyway?", False):
+            break
 
     # Get workspace folder
-    workspace = get_user_input("Finance workspace folder", "..")
-    workspace_path = Path(workspace).resolve()
-    if not workspace_path.exists():
-        print(f"Warning: Workspace folder {workspace_path} does not exist")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Workspace folder does not exist")
+    while True:
+        workspace = get_user_input("Finance workspace folder", "..")
+        workspace_path = Path(workspace).resolve()
+        if workspace_path.exists() or get_yes_no(f"Warning: Workspace folder {workspace_path} does not exist. Continue anyway?", False):
+            break
 
     # Get workbook name
-    workbook_name = get_user_input("Finance workbook filename", f"FinanceWorkbook {current_year}.xlsx")
-    if not workbook_name.endswith('.xlsx'):
-        print(f"Warning: Workbook filename should end with .xlsx")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Invalid workbook filename")
+    while True:
+        workbook_name = get_user_input("Finance workbook filename", f"FinanceWorkbook {current_year}.xlsx")
+        if workbook_name.endswith('.xlsx') or get_yes_no("Warning: Workbook filename should end with .xlsx. Continue anyway?", False):
+            break
 
     # Get inputs folder
     default_inputs = str(workspace_path / "Inputs")
-    inputs_folder = get_user_input("Inputs folder", default_inputs)
-    inputs_path = Path(inputs_folder)
-    if not inputs_path.exists():
-        print(f"Warning: Inputs folder {inputs_path} does not exist")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Inputs folder does not exist")
+    while True:
+        inputs_folder = get_user_input("Inputs folder", default_inputs)
+        inputs_path = Path(inputs_folder)
+        if inputs_path.exists() or get_yes_no(f"Warning: Inputs folder {inputs_path} does not exist. Continue anyway?", False):
+            break
 
     # Get logs folder
     default_logs = str(workspace_path / "FinPulseImportLogs")
@@ -173,18 +177,27 @@ def get_ingestion_config(run_inference: bool = True) -> dict:
     default_start = f"{current_year}-01-01"
     default_end = f"{current_year}-12-31"
 
-    start_date = get_user_input("Start date (YYYY-MM-DD)", default_start)
-    end_date = get_user_input("End date (YYYY-MM-DD)", default_end)
-    
-    # Validate date formats
-    for date_str, label in [(start_date, "Start date"), (end_date, "End date")]:
-        if date_str:
-            try:
-                datetime.strptime(date_str, "%Y-%m-%d")
-            except ValueError:
-                print(f"Warning: {label} '{date_str}' is not in YYYY-MM-DD format")
-                if not get_yes_no("Continue anyway?", False):
-                    raise UserCancelledError(f"User cancelled: Invalid {label.lower()} format")
+    while True:
+        start_date = get_user_input("Start date (YYYY-MM-DD)", default_start)
+        if not start_date:
+            break
+        try:
+            datetime.strptime(start_date, "%Y-%m-%d")
+            break
+        except ValueError:
+            if get_yes_no(f"Warning: Start date '{start_date}' is not in YYYY-MM-DD format. Continue anyway?", False):
+                break
+
+    while True:
+        end_date = get_user_input("End date (YYYY-MM-DD)", default_end)
+        if not end_date:
+            break
+        try:
+            datetime.strptime(end_date, "%Y-%m-%d")
+            break
+        except ValueError:
+            if get_yes_no(f"Warning: End date '{end_date}' is not in YYYY-MM-DD format. Continue anyway?", False):
+                break
 
     return {
         'config': config_file,
@@ -212,18 +225,16 @@ def get_ml_training_config() -> dict:
     current_year = datetime.now().year
     default_workbook = f"../FinanceWorkbook {current_year}.xlsx"
     
-    input_file = get_user_input("Excel workbook with labeled data", default_workbook)
-    if not input_file.endswith('.xlsx'):
-        print(f"Warning: Input file should be an Excel workbook (.xlsx)")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Invalid input file extension")
+    while True:
+        input_file = get_user_input("Excel workbook with labeled data", default_workbook)
+        if input_file.endswith('.xlsx') or get_yes_no("Warning: Input file should be an Excel workbook (.xlsx). Continue anyway?", False):
+            break
     
-    config_file = get_user_input("Config file path", "config/config.yaml")
-    config_path = Path(config_file)
-    if not config_path.exists():
-        print(f"Warning: Config file {config_path} does not exist")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Config file does not exist")
+    while True:
+        config_file = get_user_input("Config file path", "config/config.yaml")
+        config_path = Path(config_file)
+        if config_path.exists() or get_yes_no(f"Warning: Config file {config_path} does not exist. Continue anyway?", False):
+            break
     
     print("\nVersion bump type:")
     print("  major - Algorithm or encoder changes")
@@ -260,18 +271,16 @@ def get_ml_inference_config() -> dict:
     current_year = datetime.now().year
     default_workbook = f"../FinanceWorkbook {current_year}.xlsx"
     
-    input_file = get_user_input("Excel workbook path", default_workbook)
-    if not input_file.endswith('.xlsx'):
-        print(f"Warning: Input file should be an Excel workbook (.xlsx)")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Invalid input file extension")
+    while True:
+        input_file = get_user_input("Excel workbook path", default_workbook)
+        if input_file.endswith('.xlsx') or get_yes_no("Warning: Input file should be an Excel workbook (.xlsx). Continue anyway?", False):
+            break
     
-    config_file = get_user_input("Config file path", "config/config.yaml")
-    config_path = Path(config_file)
-    if not config_path.exists():
-        print(f"Warning: Config file {config_path} does not exist")
-        if not get_yes_no("Continue anyway?", False):
-            raise UserCancelledError("User cancelled: Config file does not exist")
+    while True:
+        config_file = get_user_input("Config file path", "config/config.yaml")
+        config_path = Path(config_file)
+        if config_path.exists() or get_yes_no(f"Warning: Config file {config_path} does not exist. Continue anyway?", False):
+            break
     
     return {
         'input': input_file,
@@ -301,7 +310,7 @@ def show_main_menu() -> int:
     print()
     
     while True:
-        choice = input("Enter your choice [1-5] (default: 1): ").strip()
+        choice = _prompt_input("Enter your choice [1-5] (default: 1): ").strip()
         if not choice:
             return 1
         if choice in MENU_CHOICES:
@@ -485,8 +494,11 @@ def run_interactive_mode() -> None:
         handlers[choice]()
         
     except UserCancelledError as e:
-        print(f"\n❌ Operation cancelled: {e}")
-        sys.exit(1)
+        print(f"\nOperation cancelled: {e}")
+        sys.exit(130)
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user")
+        sys.exit(130)
     except ImportError as e:
         print(f"\n❌ Import Error: {e}")
         print("\nMake sure all dependencies are installed:")
