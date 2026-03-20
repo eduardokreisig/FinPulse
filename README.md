@@ -55,6 +55,7 @@ FinPulse/
         utils_model.py        # ML utilities
       ui/
         interactive.py        # User interaction
+        cli,py                # Command-Line Interface mode
       utils/
         logging_utils.py      # Logging & Tee class
         path_utils.py         # Path validation
