@@ -6,7 +6,6 @@ from pathlib import Path
 
 from .processor import process_source
 from ..config.loader import get_log_directory, load_config
-from ..ui.interactive import get_ingestion_config, get_yes_no
 from ..utils.logging_utils import Tee, setup_logging, utc_log_name
 from ..utils.path_utils import create_timestamped_copy, get_timestamp
 
@@ -82,6 +81,8 @@ def run_ml_inference_if_requested(cfg: dict, xlsx_path: str, should_run_ml: bool
 
 def create_working_copy(original_xlsx: Path) -> Path:
     """Create timestamped copy with error handling."""
+    from ..ui.interactive import get_yes_no
+
     try:
         xlsx = create_timestamped_copy(original_xlsx)
         print(f"Working Copy: {xlsx}")
@@ -157,6 +158,8 @@ def run_processing(cfg: dict, args, xlsx: Path, details_sheet: str):
 
 def run_application(args):
     """Main application runner."""
+    from ..ui.interactive import get_ingestion_config, get_yes_no
+
     setup_logging()
 
     # Interactive mode if no config provided
