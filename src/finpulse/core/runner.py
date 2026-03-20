@@ -230,14 +230,14 @@ def run_application(args):
             print("(dry-run) No changes written.")
             total_accounts, total_details = results[0], results[1]
             if total_accounts > 0 or total_details > 0:
-                if get_yes_no("\nProceed with real import?", False):
-                    # Create timestamped copy for real import
+                if get_yes_no("\nProceed with real ingestion?", False):
+                    # Create timestamped copy for real ingestion
                     if original_xlsx.exists():
                         try:
                             xlsx = create_working_copy(original_xlsx)
-                            print(f"\n=== REAL IMPORT ===")
+                            print(f"\n=== REAL INGESTION ===")
                         except Exception as e:
-                            print(f"Failed to create working copy for real import: {e}")
+                            print(f"Failed to create working copy for real ingestion: {e}")
                             return
                     # Re-run without dry-run
                     args.dry_run = False
@@ -249,7 +249,7 @@ def run_application(args):
                     print(f"Pre-existing rows={final_preexisting}, Deduped rows={final_deduped}, NaT (Not a Time) total={final_nat}")
                     check_discrepancies(final_accounts, final_details, final_source_results)
                     
-                    # Run ML inference after successful real import
+                    # Run ML inference after successful real ingestion
                     if interactive_config:
                         run_ml_inference_if_requested(cfg, str(xlsx), interactive_config.get('ml_inference', False))
                     

@@ -109,8 +109,8 @@ This will prompt you for:
 - Finance workbook filename
 - Inputs folder location
 - Logs folder location
-- Start/end dates for import
-- Whether to proceed with real import after dry run
+- Start/end dates for ingestion
+- Whether to proceed with real ingestion after dry run
 
 **Important**: FinPulse automatically creates a timestamped copy of your original workbook before making any changes. The copy is named `<Original File name> <timestamp>.xlsx` (e.g., `FinanceWorkbook 2025 2024-01-01T12-00-00.123.xlsx`) and saved in the same directory as the original. Your original file remains untouched.
 
@@ -169,7 +169,7 @@ python3 -m src.finpulse.ml.model_info random_forest
 - **Versioning**: Each training run creates versioned model files
 - **Metadata tracking**: Training notes, performance metrics, feature importance
 - **Rollback support**: Easy reversion to previous model versions
-- **Automatic integration**: ML predictions run automatically during data import
+- **Automatic integration**: ML predictions run automatically during data ingestion
 
 ## Tips
 - Export as **CSV** from your banks for best compatibility.
@@ -182,7 +182,7 @@ python3 -m src.finpulse.ml.model_info random_forest
 - Logging is available - check the log directory for detailed processing info.
 - If you change mappings, re-run—deduplication prevents duplicates.
 - Missing workbooks or input files are handled gracefully with warnings.
-- After a dry run, you can choose to proceed with the real import immediately.
+- After a dry run, you can choose to proceed with the real ingestion immediately.
 
 ## ML Configuration Examples
 
