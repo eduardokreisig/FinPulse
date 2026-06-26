@@ -144,34 +144,35 @@ def fix_shifted_formulas(ws, col_acc_period: int) -> None:
                     continue
 
 
-def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str, 
+def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
                        account_label: str, rows: List[Dict[str, Any]], dry: bool = False,
-                       cumulative_keys: dict = None, log_dir: Path = None) -> tuple[int, int, set]:
+                       cumulative_keys: dict = None, log_dir: Path = None,
+                       columns: dict = None, type_labels: dict = None) -> tuple[int, int, set]:
     """Insert rows into the Details sheet."""
     if not rows:
         return 0, 0, set()
-    
+
     wb, validated_xlsx = load_workbook_safe(xlsx_path)
-    
+
     if sheet_name not in wb.sheetnames:
         wb.close()
         raise RuntimeError(f"Sheet '{sheet_name}' not found")
-    
+
     ws = wb[sheet_name]
     h = header_map(ws)
 
-    col_bank = h.get("Bank")
-    col_account = h.get("Account")
-    col_date = h.get("Date")
-    col_desc = h.get("Transaction Description")
-    col_w = h.get("Withdrawals")
-    col_d = h.get("Deposits")
-    col_type = h.get("Transaction Type")
-    col_acc_period = h.get("Accrual period")
-    col_rev = h.get("Human Verified")
-    col_notes = h.get("Notes")
-    col_subcategory_manual = h.get("Subcategory")
-    col_automated_trans_cat = h.get("Automated Trans. Category")
+    col_bank = h.get(columns["bank"])
+    col_account = h.get(columns["account"])
+    col_date = h.get(columns["date"])
+    col_desc = h.get(columns["description"])
+    col_w = h.get(columns["withdrawals"])
+    col_d = h.get(columns["deposits"])
+    col_type = h.get(columns["transaction_type"])
+    col_acc_period = h.get(columns["accrual_period"])
+    col_rev = h.get(columns["human_verified"])
+    col_notes = h.get(columns["notes"])
+    col_subcategory_manual = h.get(columns["subcategory"])
+    col_automated_trans_cat = h.get(columns["automated_category"])
 
     # Initialize debug log
     debug_log = []
@@ -275,9 +276,9 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
             d_amt = float(row_data["amount"]) if float(row_data["amount"]) > 0 else 0.0
             
             if w_amt < 0 and d_amt == 0:
-                transaction_type = "Withdrawal"
+                transaction_type = type_labels["withdrawal"]
             elif w_amt == 0 and d_amt > 0:
-                transaction_type = "Deposit"
+                transaction_type = type_labels["deposit"]
             else:
                 transaction_type = "<Error>"
             
@@ -321,24 +322,25 @@ def insert_into_details(xlsx_path: Path, sheet_name: str, bank_label: str,
 
 
 def insert_into_account_sheet(xlsx_path: Path, sheet_name: str, bank_label: str, account_label: str,
-                             rows: List[Dict[str, Any]], raw_map: Optional[Dict[str, str]], 
-                             source_config: Optional[Dict[str, Any]] = None, dry: bool = False, 
-                             start_date=None, end_date=None, cumulative_keys: dict = None, log_dir: Path = None) -> tuple[int, int, set]:
+                             rows: List[Dict[str, Any]], raw_map: Optional[Dict[str, str]],
+                             source_config: Optional[Dict[str, Any]] = None, dry: bool = False,
+                             start_date=None, end_date=None, cumulative_keys: dict = None,
+                             log_dir: Path = None, columns: dict = None) -> tuple[int, int, set]:
     """Insert rows into account-specific sheet."""
     if not rows:
         return 0, 0, set()
-    
+
     wb, validated_xlsx = load_workbook_safe(xlsx_path)
-    
+
     if sheet_name not in wb.sheetnames:
         wb.close()
         raise RuntimeError(f"Sheet '{sheet_name}' not found")
-    
+
     ws = wb[sheet_name]
     h = header_to_index(ws)
 
-    col_bank = h.get("Bank")
-    col_account = h.get("Account")
+    col_bank = h.get(columns["bank"])
+    col_account = h.get(columns["account"])
 
     raw_cols_indices = {}
     for c in range(11, ws.max_column + 1):

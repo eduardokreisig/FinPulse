@@ -12,7 +12,7 @@ from ..data.normalizer import normalize
 from ..excel.sheet_inserter import insert_into_account_sheet, insert_into_details
 
 
-def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, args, cumulative_keys: dict = None) -> Tuple[int, int, int, int, int, dict]:
+def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, args, cumulative_keys: dict = None, columns: dict = None, type_labels: dict = None) -> Tuple[int, int, int, int, int, dict]:
     """Process a single data source by processing each CSV file individually."""
     print(f"\n=== Source: {src_name} ===")
     csv_frames = load_inputs_by_file(scfg)
@@ -139,13 +139,15 @@ def process_source(src_name: str, scfg: dict, xlsx: Path, details_sheet: str, ar
         
         # Process this file's data
         acct_added, acct_existing, new_acct_keys = insert_into_account_sheet(
-            xlsx, account_sheet, bank_label, account_label, rows, raw_map=raw_map, 
+            xlsx, account_sheet, bank_label, account_label, rows, raw_map=raw_map,
             source_config=scfg, dry=args.dry_run, start_date=args.start, end_date=args.end,
-            cumulative_keys=cumulative_keys, log_dir=getattr(args, 'log_dir_path', None)
+            cumulative_keys=cumulative_keys, log_dir=getattr(args, 'log_dir_path', None),
+            columns=columns
         )
         det_added, det_existing, new_det_keys = insert_into_details(
             xlsx, details_sheet, bank_label, account_label, rows, dry=args.dry_run,
-            cumulative_keys=cumulative_keys, log_dir=getattr(args, 'log_dir_path', None)
+            cumulative_keys=cumulative_keys, log_dir=getattr(args, 'log_dir_path', None),
+            columns=columns, type_labels=type_labels
         )
         
         print(f"    -> file added: account={acct_added}, details={det_added}")

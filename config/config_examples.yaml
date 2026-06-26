@@ -1,5 +1,32 @@
-# FinPulse ML Configuration Examples
+# FinPulse Configuration Examples
 # Copy sections to your config.yaml as needed
+
+# Workbook column header names (defaults shown — only set if your sheet uses different names)
+workbook_columns_example:
+  columns:
+    bank: "Bank"
+    account: "Account"
+    date: "Date"
+    description: "Transaction Description"
+    withdrawals: "Withdrawals"
+    deposits: "Deposits"
+    transaction_type: "Transaction Type"
+    accrual_period: "Accrual period"
+    human_verified: "Human Verified"
+    notes: "Notes"
+    category: "Category"
+    subcategory: "Subcategory"
+    automated_category: "Automated Trans. Category"
+  transaction_type_labels:
+    withdrawal: "Withdrawal"
+    deposit: "Deposit"
+
+# ML model storage paths (defaults shown — relative to project root)
+ml_paths_example:
+  models_dir: "src/finpulse/ml/models"
+  metadata_file: "metadata.yaml"
+
+# FinPulse ML Configuration Examples
 
 # Example 1: Random Forest + Logistic Regression (Default)
 ml_default:

@@ -1,6 +1,24 @@
-target_workbook: ../FinanceWorkbook 2025.xlsx
+target_workbook: ../FinanceWorkbook.xlsx
 log_dir: ../FinPulseImportLogs
 details_sheet: Details
+workbook:
+  columns:
+    bank: "Bank"
+    account: "Account"
+    date: "Date"
+    description: "Transaction Description"
+    withdrawals: "Withdrawals"
+    deposits: "Deposits"
+    transaction_type: "Transaction Type"
+    accrual_period: "Accrual period"
+    human_verified: "Human Verified"
+    notes: "Notes"
+    category: "Category"
+    subcategory: "Subcategory"
+    automated_category: "Automated Trans. Category"
+  transaction_type_labels:
+    withdrawal: "Withdrawal"
+    deposit: "Deposit"
 sources:
   BECU - Member Shared Savings:
     bank_label: BECU
@@ -109,6 +127,8 @@ sources:
     description_col: Description
     automated_trans_cat_col: Type
 ml:
+  models_dir: "src/finpulse/ml/models"
+  metadata_file: "metadata.yaml"
   text_encoder: sbert           # or "tfidf"
   category_model:
     algorithm: logistic_regression

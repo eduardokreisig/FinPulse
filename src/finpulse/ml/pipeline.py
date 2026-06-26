@@ -13,6 +13,7 @@ import yaml
 import joblib
 from pathlib import Path
 from .preprocess import load_and_prepare_details
+from ..config.loader import load_details_sheet, load_ml_paths, load_workbook_columns
 
 
 def run_ml_pipeline(cfg, xlsx_path: str):
@@ -20,8 +21,10 @@ def run_ml_pipeline(cfg, xlsx_path: str):
     print("\n🔍 Starting FinPulse ML inference pipeline...")
 
     ml_cfg = cfg.get("ml", {})
-    models_dir = Path(__file__).parent / "models"
-    metadata_path = models_dir / "metadata.yaml"
+    columns = load_workbook_columns(cfg)
+    details_sheet = load_details_sheet(cfg)
+    models_dir, metadata_file = load_ml_paths(cfg)
+    metadata_path = models_dir / metadata_file
 
     # Check for trained models
     if not metadata_path.exists():
@@ -57,21 +60,26 @@ def run_ml_pipeline(cfg, xlsx_path: str):
     category_model = joblib.load(models_dir / f"category_v{version}.joblib")
     subcategory_model = joblib.load(models_dir / f"subcategory_v{version}.joblib")
 
+    c_category = columns["category"]
+    c_subcategory = columns["subcategory"]
+
     # Load workbook
-    labeled_df, unlabeled_df = load_and_prepare_details(xlsx_path)
-    df = pd.read_excel(xlsx_path, sheet_name="Details")
+    labeled_df, unlabeled_df = load_and_prepare_details(xlsx_path, details_sheet, columns)
+    df = pd.read_excel(xlsx_path, sheet_name=details_sheet)
 
     # Filter unlabeled
-    mask_unlabeled = df["Category"].isna() | df["Subcategory"].isna()
+    mask_unlabeled = df[c_category].isna() | df[c_subcategory].isna()
     df_unlabeled = df[mask_unlabeled].copy()
 
     if df_unlabeled.empty:
         print("✅ No unlabeled transactions found. Nothing to predict.")
         return
 
-    # Get feature configurations
-    category_features = ml_cfg.get("category_model", {}).get("features", ["Transaction Description", "Transaction Type"])
-    subcategory_features = ml_cfg.get("subcategory_model", {}).get("features", ["Transaction Description", "Automated Trans. Category", "Transaction Type"])
+    # Get feature configurations (defaults derived from configured column names)
+    default_category_features = [columns["description"], columns["transaction_type"]]
+    default_subcategory_features = [columns["description"], columns["automated_category"], columns["transaction_type"]]
+    category_features = ml_cfg.get("category_model", {}).get("features", default_category_features)
+    subcategory_features = ml_cfg.get("subcategory_model", {}).get("features", default_subcategory_features)
     
     def build_text_features(df, feature_columns):
         """Build concatenated text features from specified columns."""
@@ -94,21 +102,21 @@ def run_ml_pipeline(cfg, xlsx_path: str):
     preds_category = category_model.predict(X_category)
     preds_subcategory = subcategory_model.predict(X_subcategory)
 
-    df.loc[mask_unlabeled, "Category"] = preds_category
-    df.loc[mask_unlabeled, "Subcategory"] = preds_subcategory
+    df.loc[mask_unlabeled, c_category] = preds_category
+    df.loc[mask_unlabeled, c_subcategory] = preds_subcategory
 
     # Save results preserving formatting
     from openpyxl import load_workbook
     wb = load_workbook(xlsx_path)
-    ws = wb["Details"]
-    
+    ws = wb[details_sheet]
+
     # Find column indices
     col_category = col_subcategory = None
     for c in range(1, ws.max_column + 1):
         header = ws.cell(row=1, column=c).value
-        if header == "Category":
+        if header == c_category:
             col_category = c
-        elif header == "Subcategory":
+        elif header == c_subcategory:
             col_subcategory = c
     
     # Update only the prediction cells

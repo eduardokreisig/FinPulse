@@ -22,6 +22,7 @@ from .preprocess import load_and_prepare_details
 from .text_encoder import TextEncoder
 from .utils_model import bump_model_version, save_metadata
 from .config_validator import MLConfigValidator
+from ..config.loader import load_details_sheet, load_ml_paths, load_workbook_columns
 
 
 def evaluate_model_kfold(model, X, y, k=5):
@@ -79,28 +80,32 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
         raise IOError(f"Failed to read config file: {e}")
 
     ml_cfg = cfg.get("ml", {})
-    
+    columns = load_workbook_columns(cfg)
+    details_sheet = load_details_sheet(cfg)
+
     # Validate ML configuration
     try:
         MLConfigValidator.validate_ml_config(ml_cfg)
         print("✅ ML configuration validated successfully")
     except Exception as e:
         raise ValueError(f"ML configuration validation failed: {e}")
-    
+
     encoder_type = ml_cfg.get("text_encoder", "tfidf")
     rare_thresh = ml_cfg.get("rare_label_threshold", 10)
 
     print(f"Loading data from {xlsx_path}...")
     try:
-        labeled_df, _ = load_and_prepare_details(str(xlsx_path))
+        labeled_df, _ = load_and_prepare_details(str(xlsx_path), details_sheet, columns)
         if labeled_df.empty:
             raise ValueError("No labeled data found in the workbook")
     except Exception as e:
         raise RuntimeError(f"Failed to load training data: {e}")
 
-    # Create feature sets based on config
-    category_features = ml_cfg.get("category_model", {}).get("features", ["Transaction Description", "Transaction Type"])
-    subcategory_features = ml_cfg.get("subcategory_model", {}).get("features", ["Transaction Description", "Automated Trans. Category", "Transaction Type"])
+    # Create feature sets based on config (defaults derived from configured column names)
+    default_category_features = [columns["description"], columns["transaction_type"]]
+    default_subcategory_features = [columns["description"], columns["automated_category"], columns["transaction_type"]]
+    category_features = ml_cfg.get("category_model", {}).get("features", default_category_features)
+    subcategory_features = ml_cfg.get("subcategory_model", {}).get("features", default_subcategory_features)
     
     def build_text_features(df, feature_columns):
         """Build concatenated text features from specified columns."""
@@ -141,8 +146,8 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
         raise RuntimeError(f"Text encoding failed: {e}")
 
     # Prepare Y labels
-    y_category = labeled_df["Category"]
-    y_subcategory = labeled_df["Subcategory"]
+    y_category = labeled_df[columns["category"]]
+    y_subcategory = labeled_df[columns["subcategory"]]
 
     # Get model configurations
     category_config = ml_cfg.get("category_model", {})
@@ -177,16 +182,10 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
 
     # Save artifacts
     try:
-        # Secure path handling to prevent path traversal
-        base_dir = Path(__file__).parent.resolve()
-        models_dir = base_dir / "models"
-        if not str(models_dir).startswith(str(base_dir)):
-            raise ValueError("Invalid models directory path")
-        models_dir.mkdir(exist_ok=True)
-        
-        metadata_file = models_dir / "metadata.yaml"
-        if not str(metadata_file).startswith(str(models_dir)):
-            raise ValueError("Invalid metadata file path")
+        models_dir, metadata_filename = load_ml_paths(cfg)
+        models_dir.mkdir(parents=True, exist_ok=True)
+
+        metadata_file = models_dir / metadata_filename
         version_str = bump_model_version(metadata_file, bump_type)
 
         print(f"\nSaving models version {version_str}...")
@@ -249,7 +248,7 @@ def train_models(cfg_path: str, xlsx_path: str, bump_type: str = "minor", notes:
 
     # Save metadata
     try:
-        metadata_path = models_dir / "metadata.yaml"
+        metadata_path = models_dir / metadata_filename  # reuse name from load_ml_paths
         if not str(metadata_path.resolve()).startswith(str(models_dir.resolve())):
             raise ValueError("Invalid metadata path")
         save_metadata(metadata_path, meta)

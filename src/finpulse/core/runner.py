@@ -5,7 +5,8 @@ import traceback
 from pathlib import Path
 
 from .processor import process_source
-from ..config.loader import get_log_directory, load_config
+from ..config.loader import (get_log_directory, load_config, load_details_sheet,
+                              load_transaction_type_labels, load_workbook_columns)
 from ..utils.logging_utils import Tee, setup_logging, utc_log_name
 from ..utils.path_utils import create_timestamped_copy, get_timestamp
 
@@ -111,7 +112,8 @@ def check_discrepancies(total_accounts: int, total_details: int, source_results:
                 print(f"  {name}: per-account={acct_added}, details={det_added}")
 
 
-def run_processing(cfg: dict, args, xlsx: Path, details_sheet: str):
+def run_processing(cfg: dict, args, xlsx: Path, details_sheet: str,
+                   columns: dict, type_labels: dict):
     """Run the main processing loop with cumulative key building."""
     total_details = 0
     total_accounts = 0
@@ -122,14 +124,15 @@ def run_processing(cfg: dict, args, xlsx: Path, details_sheet: str):
     sources_with_data = 0
     source_results = []
     existing_counts = []
-    
+
     # Initialize cumulative deduplication keys
     cumulative_keys = {'details': set(), 'accounts': {}}
 
     for src_name, scfg in cfg["sources"].items():
         sources_processed += 1
         acct_added, det_added, nat_count, deduped_count, existing_records, new_keys = process_source(
-            src_name, scfg, xlsx, details_sheet, args, cumulative_keys)
+            src_name, scfg, xlsx, details_sheet, args, cumulative_keys,
+            columns=columns, type_labels=type_labels)
         
         # Update cumulative keys with newly added records
         if new_keys:
@@ -209,7 +212,9 @@ def run_application(args):
         log_fp, orig_stdout, tee = setup_log_file(log_dir, args.dry_run)
 
         original_xlsx = Path(cfg['target_workbook']).expanduser().resolve()
-        details_sheet = cfg.get("details_sheet", "Details")
+        details_sheet = load_details_sheet(cfg)
+        columns = load_workbook_columns(cfg)
+        type_labels = load_transaction_type_labels(cfg)
 
         print(f"Original Workbook: {original_xlsx}")
         if not original_xlsx.exists():
@@ -236,7 +241,7 @@ def run_application(args):
         args.log_dir_path = log_dir
         
         try:
-            results = run_processing(cfg, args, xlsx, details_sheet)
+            results = run_processing(cfg, args, xlsx, details_sheet, columns, type_labels)
         except Exception as e:
             print(f"Processing failed: {e}")
             return
@@ -260,7 +265,7 @@ def run_application(args):
                             return
                     # Re-run without dry-run
                     args.dry_run = False
-                    final_results = run_processing(cfg, args, xlsx, details_sheet)
+                    final_results = run_processing(cfg, args, xlsx, details_sheet, columns, type_labels)
                     final_accounts, final_details = final_results[0], final_results[1]
                     final_preexisting, final_deduped, final_nat = final_results[2], final_results[3], final_results[4]
                     final_source_results = final_results[7]

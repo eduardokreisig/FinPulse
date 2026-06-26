@@ -31,6 +31,10 @@ HEADER_WIDTH = 60
 MENU_CHOICES = ['1', '2', '3', '4', '5']
 VERSION_BUMP_TYPES = ['major', 'minor', 'patch']
 
+# interactive.py lives at src/finpulse/ui/interactive.py — 3 levels up is the project root
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_CONFIG = str(PROJECT_ROOT / "config" / "config.yaml")
+
 
 # =============================================================================
 # Exceptions
@@ -143,9 +147,12 @@ def get_ingestion_config(run_inference: bool = True) -> dict:
 
     # Get config file
     while True:
-        config_file = get_user_input("Config file path", "config/config.yaml")
+        config_file = get_user_input("Config file path", DEFAULT_CONFIG)
         config_path = Path(config_file)
+        if not config_path.is_absolute():
+            config_path = Path.cwd() / config_path
         if config_path.exists() or get_yes_no(f"Warning: Config file {config_path} does not exist. Continue anyway?", False):
+            config_file = str(config_path)
             break
 
     # Get workspace folder
@@ -221,21 +228,21 @@ def get_ml_training_config() -> dict:
         UserCancelledError: If user cancels during validation prompts
     """
     print("\n=== ML Training Configuration ===")
-    
-    current_year = datetime.now().year
-    default_workbook = f"../FinanceWorkbook {current_year}.xlsx"
-    
+
     while True:
-        input_file = get_user_input("Excel workbook with labeled data", default_workbook)
+        input_file = get_user_input("Excel workbook with labeled data (full path to .xlsx)")
         if input_file.endswith('.xlsx') or get_yes_no("Warning: Input file should be an Excel workbook (.xlsx). Continue anyway?", False):
             break
     
     while True:
-        config_file = get_user_input("Config file path", "config/config.yaml")
+        config_file = get_user_input("Config file path", DEFAULT_CONFIG)
         config_path = Path(config_file)
+        if not config_path.is_absolute():
+            config_path = Path.cwd() / config_path
         if config_path.exists() or get_yes_no(f"Warning: Config file {config_path} does not exist. Continue anyway?", False):
+            config_file = str(config_path)
             break
-    
+
     print("\nVersion bump type:")
     print("  major - Algorithm or encoder changes")
     print("  minor - New training data (default)")
@@ -267,21 +274,21 @@ def get_ml_inference_config() -> dict:
         UserCancelledError: If user cancels during validation prompts
     """
     print("\n=== ML Inference Configuration ===")
-    
-    current_year = datetime.now().year
-    default_workbook = f"../FinanceWorkbook {current_year}.xlsx"
-    
+
     while True:
-        input_file = get_user_input("Excel workbook path", default_workbook)
+        input_file = get_user_input("Excel workbook path (full path to .xlsx)")
         if input_file.endswith('.xlsx') or get_yes_no("Warning: Input file should be an Excel workbook (.xlsx). Continue anyway?", False):
             break
     
     while True:
-        config_file = get_user_input("Config file path", "config/config.yaml")
+        config_file = get_user_input("Config file path", DEFAULT_CONFIG)
         config_path = Path(config_file)
+        if not config_path.is_absolute():
+            config_path = Path.cwd() / config_path
         if config_path.exists() or get_yes_no(f"Warning: Config file {config_path} does not exist. Continue anyway?", False):
+            config_file = str(config_path)
             break
-    
+
     return {
         'input': input_file,
         'config': config_file
