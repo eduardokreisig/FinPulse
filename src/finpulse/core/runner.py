@@ -188,6 +188,7 @@ def run_application(args):
             'logs': getattr(args, 'log_dir', None),
             'start': getattr(args, 'start', None),
             'end': getattr(args, 'end', None),
+            'ml_inference': getattr(args, 'ml_inference_requested', False),
         }
 
     try:
