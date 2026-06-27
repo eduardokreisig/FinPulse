@@ -230,7 +230,7 @@ def get_ml_training_config() -> dict:
     print("\n=== ML Training Configuration ===")
 
     while True:
-        input_file = get_user_input("Excel workbook with labeled data (full path to .xlsx)")
+        input_file = get_user_input("Excel workbook with labeled data (full path to .xlsx)").strip("'\"")
         if input_file.endswith('.xlsx') or get_yes_no("Warning: Input file should be an Excel workbook (.xlsx). Continue anyway?", False):
             break
     
@@ -276,7 +276,7 @@ def get_ml_inference_config() -> dict:
     print("\n=== ML Inference Configuration ===")
 
     while True:
-        input_file = get_user_input("Excel workbook path (full path to .xlsx)")
+        input_file = get_user_input("Excel workbook path (full path to .xlsx)").strip("'\"")
         if input_file.endswith('.xlsx') or get_yes_no("Warning: Input file should be an Excel workbook (.xlsx). Continue anyway?", False):
             break
     

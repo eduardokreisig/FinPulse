@@ -1,17 +1,15 @@
-version: 2.3.0
-trained_on: '2026-06-25T20:05:10.328608'
-notes: Retraining of Category and Subcategory models using 1479 labeled transactions
-  (full 2025 data). Maitained previous model choices - Logistic Regression for Category,
-  Random Forest for Subcategory, and same hyperparameters.
+version: 2.4.0
+trained_on: '2026-06-27T00:14:31.548652'
+notes: Retraining models with 2132 labeled rows.
 global:
   encoder: sbert
   evaluation:
     validation_strategy: kfold
     k: 5
   training_data:
-    total_rows: 1478
+    total_rows: 2132
     source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2026/Training
-      data/FinanceWorkbook 2025 (FINAL2).xlsx
+      data/FinanceWorkbook 2025 and 2026 until 2026-06-22 Labeled for training.xlsx
 models:
   category:
     algorithm: logistic_regression
@@ -24,8 +22,8 @@ models:
       n_jobs: -1
       random_state: 42
     performance:
-      accuracy: 0.987150710032066
-      f1_macro: 0.7341028838642691
+      accuracy: 0.9873393365658432
+      f1_macro: 0.7323118757213625
   subcategory:
     algorithm: random_forest
     hyperparameters:
@@ -38,5 +36,5 @@ models:
       n_jobs: -1
       random_state: 42
     performance:
-      accuracy: 0.8917521759047183
-      f1_macro: 0.7882367234997296
+      accuracy: 0.911355565084496
+      f1_macro: 0.8180669315447717
