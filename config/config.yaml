@@ -102,24 +102,24 @@ sources:
     date_format: "%m/%d/%y"
     description_col: Description
     automated_trans_cat_col: Transaction Category
-  First Tech - Certificate 0958:
-    bank_label: First Tech
-    account_label: Certificate 0958
-    account_sheet: First Tech Certificate 0958
-    files:
-      - ../Inputs/First Tech - Certificate 0958/*.csv
-    auto_raw_from_sheet: true
-    # Explicit mapping for normalization:
-    date_col: Posting Date
-    date_format: "%m/%d/%y"
-    description_col: Description
-    automated_trans_cat_col: Type
   First Tech - Certificate 4926:
     bank_label: First Tech
     account_label: Certificate 4926
     account_sheet: First Tech Certificate 4926
     files:
       - ../Inputs/First Tech - Certificate 4926/*.csv
+    auto_raw_from_sheet: true
+    # Explicit mapping for normalization:
+    date_col: Posting Date
+    date_format: "%m/%d/%y"
+    description_col: Description
+    automated_trans_cat_col: Type
+  First Tech - Certificate 6570:
+    bank_label: First Tech
+    account_label: Certificate 6570
+    account_sheet: First Tech Certificate 6570
+    files:
+      - ../Inputs/First Tech - Certificate 6570/*.csv
     auto_raw_from_sheet: true
     # Explicit mapping for normalization:
     date_col: Posting Date
