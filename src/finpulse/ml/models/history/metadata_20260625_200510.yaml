@@ -1,0 +1,40 @@
+version: 2.2.0
+trained_on: '2026-03-19T22:24:20.518237'
+notes: Traininig with full 2025 transactions labeled
+global:
+  encoder: sbert
+  evaluation:
+    validation_strategy: kfold
+    k: 5
+  training_data:
+    total_rows: 1478
+    source_file: /Users/eduardokreisig/_FILES/CloudSync/Personal/Finance/Analysis/USA/2025/FinanceWorkbook
+      2025 (FINAL).xlsx
+models:
+  category:
+    algorithm: logistic_regression
+    hyperparameters:
+      solver: lbfgs
+      penalty: l2
+      C: 6.0
+      max_iter: 1000
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.987150710032066
+      f1_macro: 0.7341028838642691
+  subcategory:
+    algorithm: random_forest
+    hyperparameters:
+      n_estimators: 500
+      max_depth: 20
+      min_samples_split: 2
+      min_samples_leaf: 2
+      max_features: sqrt
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+    performance:
+      accuracy: 0.8978447091158955
+      f1_macro: 0.7900655175557766
